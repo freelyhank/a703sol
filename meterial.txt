@@ -1,0 +1,40 @@
+KONVOXA / IDENTITY AND WEBSITE REFERENCE
+
+Name: Konvoxa
+Meaning: con (consensus) + vox (voice), public agreement with verifiable records.
+Tagline: Consensus in the open.
+Slug: konvoxa
+Preferred domain candidate: konvoxa.xyz
+Other domain candidates: konvoxa.fun / konvoxa.top
+X handle candidate: @konvoxa
+Provisional UI label: KVXA (label only; not an issued SPL symbol)
+
+Identity check: read-only RDAP and public X checks dated 2026-09-29.
+No domain or social account was registered or acquired. See
+`output/branding/konvoxa/research.md` for endpoints and limits.
+
+PRODUCT
+Konvoxa is an independent Solana community application with a consensus-workspace
+interface. It supports overview, quests, token status, advisory governance,
+treasury reads, and a participation guide. Routes remain #home / #quests /
+#stake / #governance / #treasury / #learn.
+
+The Anchor community program records quest participation and advisory votes.
+It does not mint or distribute tokens, implement token locks, or execute
+treasury spending. No token mint or token symbol is configured.
+
+NETWORK
+Default: Solana Testnet (`solana:testnet`)
+RPC: https://api.testnet.solana.com
+Explorer: https://explorer.solana.com/?cluster=testnet
+Program address and account interface are preserved. The deployed Anchor
+module name `kivoraft` is a technical compatibility identifier.
+
+VISUAL
+Void-navy protocol surfaces with electric cyan and iris-violet signals and mint
+confirmations, over an ambient honeycomb lattice. The Hex Consensus mark, six
+vertex nodes in a ring around one shared rotated core, is used across the app
+and launch materials.
+Twitter launch material consists of one brand post and two conditional
+post-CA build posts. CA placeholders refer only to a future verified SPL mint,
+never to the existing program address.
