@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 128" role="img">
+  <title>Tabulora wordmark</title>
+  <g transform="translate(4 20) scale(.69)">
+    <g fill="#f2f4ec">
+    <rect x="14" y="30" width="48" height="14"/>
+    <rect x="31" y="44" width="14" height="60"/>
+    <rect x="76" y="30" width="46" height="14"/>
+    <rect x="76" y="67" width="46" height="12"/>
+    <rect x="76" y="44" width="12" height="60"/>
+    <rect x="110" y="44" width="12" height="60"/>
+    </g>
+    <rect x="49" y="44" width="13" height="32" fill="#07070a"/>
+    <rect x="88" y="79" width="22" height="25" fill="#07070a"/>
+    <rect x="88" y="44" width="22" height="23" fill="#c8f04a"/>
+  </g>
+  <text x="116" y="80" font-family="Consolas, DejaVu Sans Mono, monospace" font-size="62" font-weight="700" letter-spacing="5" fill="#f2f4ec">TABULORA</text>
+  <rect x="120" y="94" width="400" height="3" fill="#c8f04a"/>
+</svg>

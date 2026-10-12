@@ -6,7 +6,7 @@ import {
   SOLANA_NETWORK_NAME,
   TOKEN_MINT_ADDRESS,
 } from "./solana.js";
-import brandMark from "./assets/konvoxa-mark.svg";
+import brandMark from "./assets/tabulora-mark.svg";
 import Icon from "./Icon.vue";
 
 const communityApp = useCommunityApp();
@@ -65,36 +65,40 @@ const {
   proposalStatus,
   votePercent,
 } = communityApp;
-const mobileMenu = ref(false);
-const validTabs = [
-  "home",
-  "quests",
-  "stake",
-  "governance",
-  "treasury",
-  "learn",
+
+/* ------------------------------------------------------------------ routes */
+
+const routes = [
+  { id: "home", index: "00", label: "Register", hint: "overview" },
+  { id: "quests", index: "01", label: "Quests", hint: "participation" },
+  { id: "stake", index: "02", label: "Token", hint: "not configured" },
+  { id: "governance", index: "03", label: "Votes", hint: "advisory" },
+  { id: "treasury", index: "04", label: "Ledger", hint: "public reads" },
+  { id: "learn", index: "05", label: "Guide", hint: "how it works" },
 ];
-const tab = ref(
+const validTabs = routes.map((route) => route.id);
+const route = ref(
   validTabs.includes(location.hash.slice(1)) ? location.hash.slice(1) : "home",
 );
+
 function syncFromHash() {
-  mobileMenu.value = false;
   const next = location.hash.slice(1);
-  if (validTabs.includes(next)) tab.value = next;
-  else tab.value = "home";
+  route.value = validTabs.includes(next) ? next : "home";
 }
 async function go(next) {
-  mobileMenu.value = false;
-  if (tab.value !== next) history.pushState(null, "", `#${next}`);
-  tab.value = next;
+  if (route.value !== next) history.pushState(null, "", `#${next}`);
+  route.value = next;
+  focusMain();
   await nextTick();
-  document.getElementById("main")?.focus({ preventScroll: true });
   window.scrollTo({
     top: 0,
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
       ? "instant"
       : "smooth",
   });
+}
+function focusMain() {
+  document.getElementById("main")?.focus({ preventScroll: true });
 }
 onMounted(() => {
   window.addEventListener("hashchange", syncFromHash);
@@ -104,34 +108,25 @@ onUnmounted(() => {
   window.removeEventListener("hashchange", syncFromHash);
   window.removeEventListener("popstate", syncFromHash);
 });
-const nav = [
-  ["home", "Overview"],
-  ["quests", "Quests"],
-  ["stake", "Token"],
-  ["governance", "Governance"],
-  ["treasury", "Treasury"],
-  ["learn", "Guide"],
-];
-const proposalText = ref(""),
-  proposalDays = ref(7),
-  showProposal = ref(false);
-const adminTitle = ref(""),
-  adminDetails = ref(""),
-  adminMax = ref(100),
-  adminDays = ref(30),
-  questFilter = ref("all");
+
+const current = computed(
+  () => routes.find((entry) => entry.id === route.value) || routes[0],
+);
+
+/* ---------------------------------------------------------------- overview */
+
 const samples = [
   {
     id: "sample-1",
     sample: true,
     title: "Read the community charter",
     reward: 12n * 10n ** 9n,
-    detail: "A sample welcome quest. Learn how rewards and stewardship work.",
+    detail: "A sample welcome quest. See how a ledger row is written.",
   },
   {
     id: "sample-2",
     sample: true,
-    title: "Map a useful signal",
+    title: "Map one useful signal",
     reward: 28n * 10n ** 9n,
     detail: "A sample research quest. Share a source-backed observation.",
   },
@@ -140,8 +135,7 @@ const samples = [
     sample: true,
     title: "Review a treasury route",
     reward: 45n * 10n ** 9n,
-    detail:
-      "A sample review quest. Compare proposals and explain your reasoning.",
+    detail: "A sample review quest. Compare options and explain your reasoning.",
   },
 ];
 const sampleProposals = [
@@ -154,24 +148,164 @@ const sampleProposals = [
     endsAt: 0,
   },
 ];
+
+const allQuests = computed(() => (programReady.value ? quests.value : samples));
+const visibleProposals = computed(() =>
+  programReady.value ? proposals.value : sampleProposals,
+);
+const openQuests = computed(
+  () => quests.value.filter((q) => questStatus(q) === "Open").length,
+);
+const openProposals = computed(
+  () => proposals.value.filter((p) => proposalStatus(p) === "Open").length,
+);
+const metricsAvailable = computed(() => programReady.value && ready.value);
+const registerQuests = computed(() => allQuests.value.slice(0, 4));
+const registerProposals = computed(() => visibleProposals.value.slice(0, 3));
+
+const previewNote = computed(() => {
+  if (configured)
+    return "The program is not initialised on this cluster. Sample quests and proposals stay on screen; actions submit nothing.";
+  if (mintConfigured)
+    return "Mint data is read-only and sample program rows remain until a program is configured. Actions submit nothing.";
+  return "No token mint is configured and the community program is not connected. Sample rows are shown; actions submit nothing.";
+});
+
+const actionDisabled = computed(
+  () =>
+    busy.value ||
+    connecting.value ||
+    (configured &&
+      (!ready.value ||
+        reading.value ||
+        paused.value ||
+        (connected.value && (!accountReady.value || accountReading.value)))),
+);
+const tokenIdentity = computed(() => {
+  if (!mintConfigured) return "No token mint configured";
+  if (tokenName.value) return `${tokenName.value} (${tokenSymbol.value})`;
+  return reading.value
+    ? "Loading mint data..."
+    : `SPL token (${tokenSymbol.value}); metadata pending`;
+});
+const walletCell = computed(() =>
+  !connected.value ? "none" : accountReady.value ? short(wallet.value) : "syncing",
+);
+const syncCell = computed(() => {
+  if (readError.value) return "needs attention";
+  if (reading.value) return "reading";
+  return lastRead.value || "idle";
+});
+
+/* --------------------------------------------------------------- quest view */
+
 const search = ref("");
+const questFilter = ref("all");
+const questFilters = computed(() =>
+  programReady.value ? ["all", "open", "claimed"] : ["all", "sample"],
+);
+const visibleQuests = computed(() =>
+  allQuests.value.filter(
+    (q) =>
+      (questFilter.value === "all" ||
+        questStatus(q).toLowerCase() === questFilter.value) &&
+      q.title.toLowerCase().includes(search.value.trim().toLowerCase()),
+  ),
+);
+function resetFilters() {
+  search.value = "";
+  questFilter.value = "all";
+}
+async function openQuest(q) {
+  resetFilters();
+  await go("quests");
+  const row = document.getElementById(`quest-row-${q.id}`);
+  row?.focus({ preventScroll: true });
+  row?.scrollIntoView({
+    block: "center",
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : "smooth",
+  });
+}
+function preview() {
+  notify(
+    "This is an example row. Explore the workflow here; transactions require a configured Solana program.",
+    "info",
+  );
+}
+async function claim(q) {
+  if (q.sample) return preview();
+  if (questStatus(q) !== "Open")
+    return notify("This quest is not available to record.");
+  await recordQuest(q);
+}
+async function setQuest(q) {
+  await changeQuestActive(q, !q.active);
+}
+
+/* ------------------------------------------------------------- quest admin */
+
+const adminTitle = ref("");
+const adminDetails = ref("");
+const adminMax = ref(100);
+const adminDays = ref(30);
+async function createQuest() {
+  const title = adminTitle.value.trim();
+  const details = adminDetails.value.trim();
+  if (!title || new TextEncoder().encode(title).length > 80)
+    return notify("Use a quest title between 1 and 80 UTF-8 bytes.");
+  if (new TextEncoder().encode(details).length > 240)
+    return notify("Quest details must be 240 UTF-8 bytes or fewer.");
+  if (
+    !Number.isInteger(Number(adminMax.value)) ||
+    adminMax.value < 1 ||
+    adminMax.value > 1000000
+  )
+    return notify("Maximum rows must be 1 to 1,000,000.");
+  if (
+    !Number.isInteger(Number(adminDays.value)) ||
+    adminDays.value < 1 ||
+    adminDays.value > 365
+  )
+    return notify("Expiry must be 1 to 365 whole days from today.");
+  const expiry = Math.floor(Date.now() / 1000) + Number(adminDays.value) * 86400;
+  if (
+    await publishQuest({
+      title,
+      details,
+      maxClaims: Number(adminMax.value),
+      expiresAt: expiry,
+    })
+  ) {
+    adminTitle.value = "";
+    adminDetails.value = "";
+  }
+}
+
+/* -------------------------------------------------------------- vote view */
+
+const proposalText = ref("");
+const proposalDays = ref(7);
+const composeOpen = ref(false);
 const draftSaved = ref(false);
 const clearedDraft = ref(null);
 watch(proposalText, (text) => {
   if (text) clearedDraft.value = null;
 });
-const draftKey = "konvoxa-proposal-draft";
+
+const draftKey = "tabulora-proposal-draft";
+const legacyDraftKeys = [
+  "konvoxa-proposal-draft",
+  "solstir-proposal-draft",
+  "solvyrra-proposal-draft",
+  "oncivra-proposal-draft",
+  "pactelora-proposal-draft",
+  "solkintra-proposal-draft",
+  "quorivana-proposal-draft",
+  "ralliva-proposal-draft",
+];
 try {
-  // Migrate unfinished drafts from previous application brands once.
-  const legacyDraftKeys = [
-    "solstir-proposal-draft",
-    "solvyrra-proposal-draft",
-    "oncivra-proposal-draft",
-    "pactelora-proposal-draft",
-    "solkintra-proposal-draft",
-    "quorivana-proposal-draft",
-    "ralliva-proposal-draft",
-  ];
   const savedDraft = sessionStorage.getItem(draftKey);
   const legacyDraft = savedDraft
     ? null
@@ -189,7 +323,6 @@ try {
         draftKey,
         JSON.stringify({ text: proposalText.value, days: proposalDays.value }),
       );
-    // Removing stale copies prevents cleared drafts from returning later.
     legacyDraftKeys.forEach((key) => sessionStorage.removeItem(key));
   }
 } catch {
@@ -208,63 +341,13 @@ watch([proposalText, proposalDays], ([text, days]) => {
     draftSaved.value = false;
   }
 });
-async function openQuest(q) {
-  resetFilters();
-  await go("quests");
-  const card = document.getElementById(`quest-${q.id}`);
-  card?.focus({ preventScroll: true });
-  card?.scrollIntoView({
-    block: "center",
-    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? "instant"
-      : "smooth",
-  });
-}
-async function closeMenu() {
-  mobileMenu.value = false;
-  await nextTick();
-  document.getElementById("menu-toggle")?.focus();
-}
-async function toggleMenu() {
-  if (mobileMenu.value) return closeMenu();
-  mobileMenu.value = true;
-  await nextTick();
-  document.querySelector('#primary-navigation [aria-current="page"]')?.focus();
-}
-
-const allQuests = computed(() => (programReady.value ? quests.value : samples));
-const visibleQuests = computed(() =>
-  allQuests.value.filter(
-    (q) =>
-      (questFilter.value === "all" ||
-        questStatus(q).toLowerCase() === questFilter.value) &&
-      q.title.toLowerCase().includes(search.value.trim().toLowerCase()),
-  ),
-);
-const featuredQuests = computed(() => allQuests.value.slice(0, 3));
-const openQuests = computed(
-  () => quests.value.filter((q) => questStatus(q) === "Open").length,
-);
-const openProposals = computed(
-  () => proposals.value.filter((p) => proposalStatus(p) === "Open").length,
-);
-const metricsAvailable = computed(() => programReady.value && ready.value);
-async function toggleProposal() {
-  showProposal.value = !showProposal.value;
+async function toggleCompose() {
+  composeOpen.value = !composeOpen.value;
   await nextTick();
   document
-    .getElementById(
-      showProposal.value ? "proposal-description" : "proposal-toggle",
-    )
+    .getElementById(composeOpen.value ? "proposal-description" : "compose-toggle")
     ?.focus();
 }
-function resetFilters() {
-  search.value = "";
-  questFilter.value = "all";
-}
-const pageLabel = computed(
-  () => nav.find(([id]) => id === tab.value)?.[1] || "Overview",
-);
 function clearDraft() {
   clearedDraft.value = { text: proposalText.value, days: proposalDays.value };
   proposalText.value = "";
@@ -279,51 +362,10 @@ function undoClearDraft() {
   proposalDays.value = draft.days;
   document.getElementById("proposal-description")?.focus();
 }
-function focusMain() {
-  document.getElementById("main")?.focus();
-}
-const visibleProposals = computed(() =>
-  programReady.value ? proposals.value : sampleProposals,
-);
-const actionDisabled = computed(
-  () =>
-    busy.value ||
-    connecting.value ||
-    (configured &&
-      (!ready.value ||
-        reading.value ||
-        paused.value ||
-        (connected.value && (!accountReady.value || accountReading.value)))),
-);
-const tokenIdentity = computed(() => {
-  if (!mintConfigured) return "No token mint configured";
-  if (tokenName.value) return `${tokenName.value} (${tokenSymbol.value})`;
-  return reading.value
-    ? "Loading mint data..."
-    : `SPL token (${tokenSymbol.value}); metadata pending`;
-});
-function preview() {
-  notify(
-    "This is an example. Explore the workflow here; transactions require a configured Solana program.",
-    "info",
-  );
-}
-async function claim(q) {
-  if (q.sample) return preview();
-  if (questStatus(q) !== "Open")
-    return notify("This quest is not available to claim.");
-  await recordQuest(q);
-}
-async function vote(p, support) {
-  if (p.sample) return preview();
-  if (proposalStatus(p) !== "Open")
-    return notify("Voting is closed or you already voted.");
-  await castVote(p, support);
-}
 async function createProposal() {
   const description = proposalText.value.trim();
   if (description.length < 10 || description.length > 2000)
-    return notify("Use 10 to 2,000 characters for your proposal.");
+    return notify("Use 10 to 2,000 characters for a proposal.");
   if (
     !Number.isInteger(Number(proposalDays.value)) ||
     proposalDays.value < 1 ||
@@ -332,1308 +374,1236 @@ async function createProposal() {
     return notify("Voting duration must be 1 to 30 whole days.");
   const submittedDays = Number(proposalDays.value);
   if (await publishProposal(description, submittedDays)) {
-    // A wallet confirmation may take time; retain any newer draft typed meanwhile.
     if (
       proposalText.value.trim() === description &&
       Number(proposalDays.value) === submittedDays
     ) {
       proposalText.value = "";
-      showProposal.value = false;
+      composeOpen.value = false;
       await nextTick();
-      document.getElementById("proposal-toggle")?.focus();
+      document.getElementById("compose-toggle")?.focus();
     }
   }
 }
-async function createQuest() {
-  const title = adminTitle.value.trim();
-  const details = adminDetails.value.trim();
-  if (!title || new TextEncoder().encode(title).length > 80)
-    return notify("Use a quest title between 1 and 80 UTF-8 bytes.");
-  if (new TextEncoder().encode(details).length > 240)
-    return notify("Quest details must be 240 UTF-8 bytes or fewer.");
-  if (
-    !Number.isInteger(Number(adminMax.value)) ||
-    adminMax.value < 1 ||
-    adminMax.value > 1000000
-  )
-    return notify("Maximum claims must be 1 to 1,000,000.");
-  if (
-    !Number.isInteger(Number(adminDays.value)) ||
-    adminDays.value < 1 ||
-    adminDays.value > 365
-  )
-    return notify("Expiry must be 1 to 365 whole days from today.");
-  const expiry = Math.floor(Date.now() / 1000) + Number(adminDays.value) * 86400;
-  if (await publishQuest({
-    title,
-    details,
-    maxClaims: Number(adminMax.value),
-    expiresAt: expiry,
-  })) {
-    adminTitle.value = "";
-    adminDetails.value = "";
-  }
-}
-async function setQuest(q) {
-  await changeQuestActive(q, !q.active);
+async function vote(p, support) {
+  if (p.sample) return preview();
+  if (proposalStatus(p) !== "Open")
+    return notify("Voting is closed or this wallet already voted.");
+  await castVote(p, support);
 }
 </script>
 
 <template>
-  <div class="app-shell">
-    <a class="skip-link" href="#main" @click.prevent="focusMain"
-      >Skip to content</a
-    >
-    <header class="site-header" @keydown.esc="closeMenu">
-      <button class="brand" aria-label="Konvoxa home" @click="go('home')">
-        <img :src="brandMark" width="34" height="34" alt="" />
-        <span
-          >konvoxa<span class="brand-caption"
-            >CONSENSUS IN THE OPEN</span
-          ></span
-        >
-      </button>
-      <nav
-        id="primary-navigation"
-        class="primary-navigation"
-        :class="{ expanded: mobileMenu }"
-        aria-label="Main navigation"
-      >
-        <button
-          v-for="n in nav"
-          :key="n[0]"
-          :class="{ active: tab === n[0] }"
-          :aria-current="tab === n[0] ? 'page' : undefined"
-          @click="go(n[0])"
-        >
-          <span>{{ n[1] }}</span
-          ><Icon name="arrow" :size="17" />
-        </button>
-        <span class="mobile-nav-caption">Routes in. Proof out.</span>
-      </nav>
-      <div class="topbar-actions">
-        <span class="network-button" :aria-label="`${SOLANA_NETWORK_NAME} selected`">
-          <span class="status-dot"></span>{{ SOLANA_CLUSTER }}
+  <div class="shell">
+    <a class="skip-link" href="#main" @click.prevent="focusMain">Skip to the ledger</a>
+
+    <aside class="rail">
+      <button class="rail-brand" aria-label="Tabulora register" @click="go('home')">
+        <img :src="brandMark" width="40" height="40" alt="" />
+        <span>
+          <b>tabulora</b>
+          <small>every hand on the record</small>
         </span>
+      </button>
+      <p class="rail-mark">
+        SOLANA <em>/</em> {{ SOLANA_CLUSTER.toUpperCase() }}<br />
+        ROWS <em>/</em> {{ allQuests.length }} QUESTS <em>/</em> {{ visibleProposals.length }} VOTES
+      </p>
+      <nav class="rail-nav" aria-label="Ledger sections">
         <button
-          class="wallet-button"
-          :disabled="connecting || busy"
-          @click="connected ? disconnectWallet() : connect()"
+          v-for="entry in routes"
+          :key="entry.id"
+          :aria-current="route === entry.id ? 'page' : undefined"
+          @click="go(entry.id)"
         >
-          <Icon name="wallet" :size="17" /><span>{{
-            connecting
-              ? "Connecting..."
-              : connected
-                ? short(wallet)
-                : "Connect wallet"
-          }}</span>
+          <i>{{ entry.index }}</i>
+          <span>{{ entry.label }}</span>
+          <small>{{ entry.hint }}</small>
         </button>
-        <button
-          id="menu-toggle"
-          class="menu-toggle icon-button"
-          :aria-expanded="mobileMenu"
-          aria-controls="primary-navigation"
-          :aria-label="mobileMenu ? 'Close navigation' : 'Open navigation'"
-          @click="toggleMenu"
-        >
-          <Icon :name="mobileMenu ? 'close' : 'menu'" />
-        </button>
+      </nav>
+      <div class="rail-foot">
+        <span>{{ walletCell === "none" ? "WALLET / NONE" : "WALLET / " + walletCell }}</span>
+        <span>READ / {{ syncCell.toUpperCase() }}</span>
+        <span>TOKEN / NONE ISSUED</span>
       </div>
-    </header>
-    <button
-      v-if="mobileMenu"
-      class="menu-backdrop"
-      aria-label="Close navigation overlay"
-      @click="closeMenu"
-    ></button>
-    <div class="workspace">
-      <main id="main" tabindex="-1">
-        <div v-if="!programReady" class="notice preview-notice">
-          <span class="notice-symbol"><Icon name="info" :size="17" /></span>
-          <p><strong>Preview mode.</strong> {{ configured ? "The program is not initialized on this cluster. Sample quests and proposals remain visible; actions submit nothing." : mintConfigured ? "Mint data is read-only; sample program content remains until a program is configured. Actions submit nothing." : "No token mint is configured and the community program is not connected. Sample content is shown; actions submit nothing." }}</p>
-          <button class="text-button" @click="go('learn')">
-            How it works <Icon :size="15" />
-          </button>
+    </aside>
+
+    <div class="main">
+      <header class="command">
+        <div class="command-route">
+          <b>{{ current.index }} / {{ current.label }}</b>
+          <small>{{ current.hint }} · {{ SOLANA_NETWORK_NAME }}</small>
         </div>
-        <div v-if="paused" class="notice warning-notice" role="status">
-          <Icon name="info" />
-          <p>
-            The protocol is paused. You can browse data; transactions are
-            temporarily unavailable.
-          </p>
-        </div>
-        <div v-if="mintConfigured || configured || connected" class="read-status">
-          <span :class="{ failed: readError }" role="status"
-            ><span
-              class="status-dot"
-              :class="{ loading: reading, failed: readError }"
-            ></span
-            >{{
-              readError
-                ? "Connection needs attention"
-                : reading
-                  ? "Syncing Solana data..."
-                  : "Synced at " + lastRead
-            }}</span
-          >
-          <div>
-            <a
-              v-if="mintConfigured"
-              :href="explorer('address', TOKEN_MINT_ADDRESS)"
-              target="_blank"
-              rel="noopener noreferrer"
-              >View Solana address <Icon name="external" :size="14" /></a
-            ><button
-              :disabled="reading || busy"
-              aria-label="Refresh Solana data"
-              @click="refresh"
-            >
-              <Icon
-                name="refresh"
-                :size="14"
-                :class="{ spinning: reading }"
-              />{{ reading ? "Syncing" : "Refresh" }}
-            </button>
+        <div class="command-reads" role="group" aria-label="Network readouts">
+          <div class="read-cell">
+            <small>cluster</small>
+            <b class="acid">{{ SOLANA_CLUSTER }}</b>
+          </div>
+          <div class="read-cell">
+            <small>program</small>
+            <b :class="programReady ? 'acid' : 'quiet'">
+              {{ programReady ? "ready" : configured ? "pending" : "not set" }}
+            </b>
+          </div>
+          <div class="read-cell">
+            <small>open quests</small>
+            <b>{{ metricsAvailable ? openQuests : "—" }}</b>
+          </div>
+          <div class="read-cell">
+            <small>open votes</small>
+            <b>{{ metricsAvailable ? openProposals : "—" }}</b>
+          </div>
+          <div class="read-cell">
+            <small>token mint</small>
+            <b class="quiet">{{ mintConfigured ? short(TOKEN_MINT_ADDRESS) : "none" }}</b>
           </div>
         </div>
-        <div v-if="readError" class="error-panel" role="alert">
+        <div class="command-actions">
+          <button
+            class="sync-button"
+            :disabled="reading || busy"
+            :aria-label="`Re-read ${SOLANA_NETWORK_NAME} data`"
+            @click="refresh"
+          >
+            <Icon name="refresh" :size="14" :class="{ spin: reading }" />
+            <span>{{ reading ? "reading" : "sync" }}</span>
+          </button>
+          <button
+            class="wallet-button"
+            :class="{ ghost: connected }"
+            :disabled="connecting || busy"
+            @click="connected ? disconnectWallet() : connect()"
+          >
+            <Icon name="wallet" :size="15" />
+            <span>{{ connecting ? "connecting" : connected ? short(wallet) : "connect wallet" }}</span>
+          </button>
+        </div>
+      </header>
+
+      <main id="main" class="route" tabindex="-1">
+        <div v-if="!programReady" class="notice acid">
+          <Icon name="info" :size="18" />
           <div>
-            <strong>We could not sync Solana data.</strong>
+            <strong>Preview rows</strong>
+            <p>{{ previewNote }}</p>
+          </div>
+          <button class="action quiet spacer" @click="go('learn')">
+            How it works <Icon name="arrow" :size="14" />
+          </button>
+        </div>
+        <div v-if="paused" class="notice ember" role="status">
+          <Icon name="info" :size="18" />
+          <div>
+            <strong>Writes paused</strong>
+            <p>The protocol is paused. Reads continue; transactions are unavailable.</p>
+          </div>
+        </div>
+        <div v-if="readError" class="notice bad" role="alert">
+          <Icon name="info" :size="18" />
+          <div>
+            <strong>Sync failed</strong>
             <p>{{ readError }}</p>
           </div>
-          <button class="outline" :disabled="reading || busy" @click="refresh">
-            Try again
-          </button>
+          <button class="action spacer" :disabled="reading || busy" @click="refresh">Try again</button>
         </div>
-        <p v-if="accountError" class="inline-error" role="alert">
-          {{ accountError }}
-        </p>
-        <p v-if="accountReading" class="account-loading" role="status">
-          Reading your wallet balances and activity...        </p>
+        <p v-if="accountError" class="fine" role="alert">{{ accountError }}</p>
+        <p v-if="accountReading" class="fine" role="status">Reading wallet balances…</p>
 
-        <section v-if="tab === 'home'" class="overview">
-          <div class="home-masthead">
-            <span class="eyebrow">COMMUNITY OVERVIEW</span
-            ><span class="edition-label"
-              >SOLANA <span> / </span> {{ SOLANA_CLUSTER === "mainnet-beta" ? "MAINNET" : SOLANA_CLUSTER.toUpperCase() }}</span
-            >
-          </div>
-          <div class="home-hero">
-            <div class="hero-copy">
-              <h1>Protocol<br /><em>overview.</em></h1>
-              <div class="hero-intro">
-                <span class="intro-rule" aria-hidden="true"></span>
-                <p>
-                  Follow SOL balances, community quests, and proposals on Solana.<!--
-                  -->
-                </p>
-              </div>
-              <div class="hero-actions">
-                <button class="primary" @click="go('quests')">
-                  Browse quests <Icon :size="19" /></button
-                ><button class="text-button" @click="go('governance')">
-                  View proposals <Icon :size="17" />
-                </button>
-              </div>
-            </div>
-            <section class="portfolio-panel" aria-label="Wallet overview">
-              <div class="portfolio-heading">
-                <div>
-                  <span class="eyebrow">WALLET OVERVIEW</span>
-                  <strong>{{ connected ? short(wallet) : "No wallet connected" }}</strong>
-                </div>
-                <span class="badge" :class="{ open: connected && accountReady }">{{ connected ? accountReady ? "Connected" : "Syncing" : "Preview" }}</span>
-              </div>
-              <div class="portfolio-total">
-                <span>AVAILABLE BALANCE</span>
-                <strong>{{ connected && accountReady ? solUnits(native, 4) : "--" }} <small>SOL</small></strong>
-                <span>Native balance on {{ SOLANA_NETWORK_NAME }}</span>
-              </div>
-              <div class="portfolio-assets">
-                <div class="portfolio-asset">
-                  <span class="asset-symbol sol">S</span>
-                  <span><strong>Solana</strong><small>Native asset</small></span>
-                  <b>{{ connected && accountReady ? `${solUnits(native, 4)} SOL` : "Connect wallet" }}</b>
-                </div>
-                <div class="portfolio-asset">
-                  <span class="asset-symbol token"><Icon name="stake" :size="16" /></span>
-                  <span><strong>{{ mintConfigured ? tokenSymbol : "Token mint" }}</strong><small>{{ mintConfigured ? tokenName || "SPL token" : "Not configured" }}</small></span>
-                  <b>{{ mintConfigured && connected && accountReady ? `${units(token)} ${tokenSymbol}` : "--" }}</b>
-                </div>
-              </div>
-              <div class="portfolio-footer">
-                <span><i class="status-dot"></i>{{ SOLANA_NETWORK_NAME }}</span>
-                <button v-if="!connected" class="connect-inline" :disabled="connecting || busy" @click="connect">Connect wallet <Icon name="wallet" :size="15" /></button>
-                <span v-else>{{ accountReady ? "Wallet synced" : "Reading wallet" }}</span>
-              </div>
-            </section>
-          </div>
-          <section class="community-strip" aria-label="Community statistics">
-            <div class="strip-intro">
-              <span class="eyebrow">NETWORK ACTIVITY</span>
+        <!-- 00 / REGISTER ------------------------------------------------- -->
+        <template v-if="route === 'home'">
+          <div class="route-head">
+            <div>
+              <span class="eyebrow">Open ledger / community work</span>
+              <h1>Every hand <em>on the record.</em></h1>
               <p>
-                <span class="status-dot"></span
-                >{{
-                  metricsAvailable
-                    ? "Live from Solana"
-                    : mintConfigured
-                      ? "Mint read-only / program pending"
-                      : "Preview - sample workspace"
-                }}
+                Quests, advisory votes and wallet state written to one ledge anyone can
+                reopen. Nothing here mints a token or moves community funds.
               </p>
             </div>
-            <div class="strip-metric">
-              <strong>{{
-                metricsAvailable ? openQuests.toLocaleString() : "-"
-              }}</strong
-              ><span>Open quests</span>
+            <span class="route-tag">{{ SOLANA_NETWORK_NAME }}</span>
+          </div>
+
+          <section class="flow" aria-label="Ledger totals">
+            <div class="flow-cell">
+              <small>open quests</small>
+              <b :class="{ acid: metricsAvailable }">{{ metricsAvailable ? openQuests : "—" }}</b>
+              <span>{{ metricsAvailable ? "reading the program" : "sample rows shown" }}</span>
             </div>
-            <div class="strip-metric">
-              <strong>Not configured</strong><span>Token staking</span>
+            <div class="flow-cell">
+              <small>advisory votes open</small>
+              <b :class="{ acid: metricsAvailable }">{{ metricsAvailable ? openProposals : "—" }}</b>
+              <span>one vote per wallet per proposal</span>
             </div>
-            <div class="strip-metric">
-              <strong>{{
-                metricsAvailable ? openProposals.toLocaleString() : "-"
-              }}</strong
-              ><span>Ideas open for a vote</span>
+            <div class="flow-cell">
+              <small>token mint</small>
+              <b class="dim">{{ mintConfigured ? short(TOKEN_MINT_ADDRESS) : "not configured" }}</b>
+              <span>no mint, no rewards, no locks</span>
+            </div>
+            <div class="flow-cell">
+              <small>native balance</small>
+              <b class="dim">{{ connected && accountReady ? solUnits(native, 4) + " SOL" : "connect wallet" }}</b>
+              <span>{{ SOLANA_NETWORK_NAME }}</span>
             </div>
           </section>
-          <div class="home-actions-layout">
-            <section class="opportunity-panel">
-              <div class="section-heading">
-                <div>
-                  <span class="eyebrow">COMMUNITY ACTIVITY</span>
-                  <h2>Available quests.</h2>
-                </div>
-                <button class="text-button" @click="go('quests')">
-                  All quests <Icon :size="17" />
-                </button>
-              </div>
-              <div class="starter-list">
-                <button
-                  v-for="(q, index) in featuredQuests"
-                  :key="q.id"
-                  class="starter-row"
-                  @click="openQuest(q)"
-                >
-                  <span class="starter-number">{{
-                    String(index + 1).padStart(2, "0")
-                  }}</span>
-                  <span class="starter-copy"
-                    ><span class="tiny-label">{{
-                      q.sample ? "SAMPLE QUEST" : questStatus(q) + " QUEST"
-                    }}</span
-                    ><strong>{{ q.title }}</strong></span
-                  >
-                  <span class="row-reward"
-                  >{{ q.sample ? "Sample only" : "Participation only" }}</span
-                  ><Icon name="external" :size="21" />
-                </button>
-                <div v-if="!featuredQuests.length" class="empty compact">
-                  <Icon name="quests" :size="28" />
-                  <h3>
-                    {{
-                      reading
-                        ? "Finding your next move..."
-                        : readError
-                          ? "Quests will appear once connected."
-                          : "The next chapter is open."
-                    }}
-                  </h3>
-                  <p>
-                    {{
-                      reading
-                        ? "Reading the latest quests from Solana."
-                        : "Explore the guide while the community prepares its next quests."
-                    }}
-                  </p>
-                  <button class="text-button" @click="go('learn')">
-                    Read the guide <Icon :size="17" />
+
+          <div class="ticker" role="status">
+            <span>READ <b>{{ syncCell }}</b></span>
+            <span>WALLET <b>{{ walletCell }}</b></span>
+            <span>TREASURY <b>{{ ready && treasuryNativeKnown ? solUnits(treasuryNative, 4) + " SOL" : "unavailable" }}</b></span>
+            <span>PROGRAM <b>{{ programReady ? "initialised" : "preview" }}</b></span>
+            <span>MAX CLAIM CAP <b>on chain</b></span>
+          </div>
+
+          <div class="split">
+            <div class="stack">
+              <section class="band">
+                <div class="band-head">
+                  <h2>Open rows / quests</h2>
+                  <button class="action quiet" @click="go('quests')">
+                    All quests <Icon name="arrow" :size="14" />
                   </button>
                 </div>
-              </div>
-            </section>
-            <aside class="next-step-card">
-              <span class="eyebrow">GETTING STARTED</span>
-              <h2>New to<br /><em>Testnet?</em></h2>
-              <p>
-                Wallet setup, network selection, and what each action records.
-              </p>
-              <button class="primary lime" @click="go('learn')">
-                Open the guide <Icon :size="18" /></button
-              ><span class="card-diagonal" aria-hidden="true">&#8599;</span>
+                <div class="band-body tight">
+                  <div v-if="!registerQuests.length" class="empty">
+                    <strong>No rows yet</strong>
+                    <p>Quests appear here once the community publishes them.</p>
+                  </div>
+                  <button
+                    v-for="(q, index) in registerQuests"
+                    :key="q.id"
+                    class="row"
+                    @click="openQuest(q)"
+                  >
+                    <span class="num">{{ String(index + 1).padStart(2, "0") }}</span>
+                    <span class="copy">
+                      <b>{{ q.title }}</b>
+                      <small>{{ q.sample ? "sample row" : "quest / " + String(q.id).padStart(3, "0") }}</small>
+                    </span>
+                    <span class="tail">{{ q.sample ? "preview" : questStatus(q) }}</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="band">
+                <div class="band-head">
+                  <h2>Advisory votes</h2>
+                  <button class="action quiet" @click="go('governance')">
+                    Open the floor <Icon name="arrow" :size="14" />
+                  </button>
+                </div>
+                <div class="band-body tight">
+                  <button
+                    v-for="p in registerProposals"
+                    :key="p.id"
+                    class="row"
+                    @click="go('governance')"
+                  >
+                    <span class="num">{{ p.sample ? "ex" : String(p.id).padStart(3, "0") }}</span>
+                    <span class="copy">
+                      <b>{{ p.description }}</b>
+                      <small>{{ p.sample ? "sample proposal" : "closes " + date(p.endsAt) }}</small>
+                    </span>
+                    <span class="tail">{{ proposalStatus(p) }}</span>
+                  </button>
+                </div>
+                <div class="band-body tight">
+                  <div class="tally">
+                    <div>
+                      <small>for</small>
+                      <b class="for">{{ units(registerProposals[0]?.forVotes || 0n) }}</b>
+                    </div>
+                    <div>
+                      <small>against</small>
+                      <b class="against">{{ units(registerProposals[0]?.againstVotes || 0n) }}</b>
+                    </div>
+                    <div>
+                      <small>support</small>
+                      <b>{{ registerProposals[0] ? votePercent(registerProposals[0]) + "%" : "—" }}</b>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside class="side">
+              <section class="band">
+                <div class="band-head">
+                  <h2>Wallet read</h2>
+                  <span class="band-note">{{ connected ? "connected" : "idle" }}</span>
+                </div>
+                <div class="band-body tight">
+                  <dl class="defs">
+                    <div>
+                      <dt>Address</dt>
+                      <dd>{{ connected ? short(wallet) : "not connected" }}</dd>
+                    </div>
+                    <div>
+                      <dt>SOL</dt>
+                      <dd>{{ connected && accountReady ? solUnits(native, 4) : "—" }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ mintConfigured ? tokenSymbol : "Token" }}</dt>
+                      <dd class="muted">{{ mintConfigured && connected && accountReady ? units(token) : "not configured" }}</dd>
+                    </div>
+                    <div>
+                      <dt>State</dt>
+                      <dd>{{ connected ? (accountReady ? "synced" : "reading") : "connect to read" }}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div class="band-body">
+                  <button
+                    class="action solid wide"
+                    :disabled="connecting || busy"
+                    @click="connected ? disconnectWallet() : connect()"
+                  >
+                    <Icon name="wallet" :size="15" />
+                    {{ connected ? "Disconnect" : "Connect wallet" }}
+                  </button>
+                </div>
+              </section>
+
+              <section class="band">
+                <div class="band-head"><h2>Token status</h2></div>
+                <div class="band-body">
+                  <p class="fine">{{ tokenIdentity }}</p>
+                  <p class="fine">
+                    The community program records quest participation and advisory
+                    votes. It does not mint, custody or distribute tokens.
+                  </p>
+                  <button class="action wide" @click="go('stake')">
+                    Token details <Icon name="arrow" :size="14" />
+                  </button>
+                </div>
+              </section>
+
+              <section class="band">
+                <div class="band-head"><h2>Reading guide</h2></div>
+                <div class="band-body">
+                  <p class="fine">
+                    A preview never sends a transaction. Reviews happen in your wallet
+                    before anything is signed. Never share a seed phrase to fix a
+                    connection.
+                  </p>
+                  <button class="action wide" @click="go('learn')">
+                    Open the guide <Icon name="arrow" :size="14" />
+                  </button>
+                </div>
+              </section>
             </aside>
           </div>
-          <section
-            class="participation-routes"
-            aria-label="More ways to participate"
-          >
-            <div class="route-intro">
-              <span class="eyebrow">WORKSPACES</span>
-              <h2>More activity.</h2>
-            </div>
-            <button class="route-item" @click="go('stake')">
-              <span class="route-top"
-                ><span class="tiny-label">02 / TOKEN DETAILS</span
-                ><Icon name="external" :size="22" /></span
-              ><strong>Token status.</strong>
-              <p>No mint is configured; token actions are unavailable.</p>
-            </button>
-            <button class="route-item" @click="go('governance')">
-              <span class="route-top"
-                ><span class="tiny-label">03 / COORDINATE</span
-                ><Icon name="external" :size="22" /></span
-              ><strong>Proposals.</strong>
-              <p>Create or vote on an advisory proposal.</p>
-            </button>
-            <button class="route-item" @click="go('treasury')">
-              <span class="route-top"
-                ><span class="tiny-label">04 / VERIFY</span
-                ><Icon name="external" :size="22" /></span
-              ><strong>Treasury reads.</strong>
-              <p>Review public balances and available records.</p>
-            </button>
-          </section>
-        </section>
-        <section v-if="tab === 'quests'" class="page quests-page">
-          <div class="page-head">
+        </template>
+
+        <!-- 01 / QUESTS --------------------------------------------------- -->
+        <template v-if="route === 'quests'">
+          <div class="route-head">
             <div>
-              <span class="eyebrow">01 / THE CONTRIBUTION BOARD</span>
+              <span class="eyebrow">01 / Participation rows</span>
               <h1>Find your part.</h1>
               <p>
-                Browse on-chain contribution records. Claims record wallet
-                participation only; they do not pay a token reward or verify
-                off-chain work.
+                Each row records wallet participation only. Recording a row is not
+                proof of off-chain work, and it pays no token.
               </p>
             </div>
-            <span class="page-emblem"><Icon name="quests" :size="32" /></span>
+            <span class="route-tag">{{ allQuests.length }} rows</span>
           </div>
-          <div class="quest-workspace">
-            <div class="quest-toolbar">
-              <label class="search-field"
-                ><Icon name="search" :size="19" /><span class="sr-only"
-                  >Search quests</span
-                ><input
+
+          <section class="band">
+            <div class="toolbar">
+              <label class="field">
+                <Icon name="search" :size="16" />
+                <span class="sr-only">Search quests</span>
+                <input
                   v-model="search"
                   type="search"
-                  placeholder="Find something to work on..."
+                  placeholder="Find a row…"
                   autocomplete="off"
-              /></label>
-              <div class="filters" role="group" aria-label="Filter quests">
+                />
+              </label>
+              <div class="segments" role="group" aria-label="Filter quests">
                 <button
-                  v-for="f in programReady
-                    ? ['all', 'open', 'claimed']
-                    : ['all', 'sample']"
+                  v-for="f in questFilters"
                   :key="f"
                   :aria-pressed="questFilter === f"
-                  :class="{ selected: questFilter === f }"
                   @click="questFilter = f"
                 >
-                  {{ f
-                  }}<span v-if="f === 'all'" class="filter-count">{{
-                    allQuests.length
-                  }}</span>
+                  {{ f }}
                 </button>
               </div>
-              <span class="results-count" role="status"
-                >{{ visibleQuests.length }}
-                {{ visibleQuests.length === 1 ? "quest" : "quests" }}</span
-              >
+              <span class="count" role="status">
+                {{ visibleQuests.length }} {{ visibleQuests.length === 1 ? "row" : "rows" }}
+              </span>
             </div>
-            <div
-              v-if="reading && !allQuests.length"
-              class="skeleton-grid"
-              role="status"
-            >
+
+            <div v-if="reading && !allQuests.length" role="status">
               <span class="sr-only">Loading quests</span>
               <div v-for="i in 3" :key="i" class="skeleton"></div>
             </div>
-            <div v-if="!reading && !visibleQuests.length" class="empty">
-              <Icon name="search" :size="32" />
-              <h2>
-                {{
-                  readError
-                    ? "Quest data is unavailable."
-                    : search || questFilter !== "all"
-                      ? "No quests found."
-                      : "Room for the first contribution."
-                }}
-              </h2>
+
+            <div v-else-if="!visibleQuests.length" class="empty">
+              <strong>
+                {{ readError ? "Rows unavailable" : search || questFilter !== "all" ? "No matching rows" : "Room for the first row" }}
+              </strong>
               <p>
                 {{
                   readError
-                    ? "Retry the connection to load the latest quests."
+                    ? "Retry the connection to read the latest quests."
                     : search || questFilter !== "all"
-                      ? "Try a different keyword or show all quests."
-                      : "No quests have been published yet. Check back for the next community activity."
+                      ? "Try another keyword or show every row."
+                      : "No quests have been published yet. Check back for the next activity."
                 }}
               </p>
               <button
                 v-if="search || questFilter !== 'all'"
-                class="outline"
+                class="action"
                 @click="resetFilters"
               >
-                Clear filters</button
-              ><button
-                v-else-if="readError"
-                class="outline"
-                :disabled="reading"
-                @click="refresh"
-              >
+                Clear filters
+              </button>
+              <button v-else-if="readError" class="action" :disabled="reading" @click="refresh">
                 Try again
               </button>
             </div>
-            <div class="quest-grid">
-              <article
-                v-for="(q, index) in visibleQuests"
-                :key="q.id"
-                class="quest-card"
-                :id="'quest-' + q.id"
-                :aria-labelledby="'quest-title-' + q.id"
-                tabindex="-1"
-              >
-                <div class="quest-card-top">
-                  <span class="quest-number">{{
-                    String(index + 1).padStart(2, "0")
-                  }}</span
-                  ><span
-                    class="badge"
-                    :class="{ open: questStatus(q) === 'Open' }"
-                    >{{ questStatus(q) }}</span
-                  >
-                </div>
-                <div class="quest-main">
-                  <span class="tiny-label">{{
-                    q.sample
-                      ? "EXAMPLE QUEST"
-                      : "QUEST / " + String(q.id).padStart(3, "0")
-                  }}</span>
-                  <h2 :id="'quest-title-' + q.id">{{ q.title }}</h2>
-                  <p>
-                    {{
-                    q.detail || "A community participation record on Solana."
-                    }}
-                  </p>
-                  <div v-if="!q.sample" class="quest-cap">
-                    <div>
-                      <span
-                        >{{ q.claims.toLocaleString() }} /
-                        {{ q.maxClaims.toLocaleString() }} claimed</span
-                      ><span
-                        >{{
-                          Math.max(0, q.maxClaims - q.claims).toLocaleString()
-                        }}
-                        left</span
-                      >
-                    </div>
-                    <progress
-                      :value="q.claims"
-                      :max="q.maxClaims || 1"
-                      :aria-label="
-                        q.claims + ' of ' + q.maxClaims + ' claims used'
-                      "
-                    ></progress
-                    ><span
-                      ><Icon name="clock" :size="14" />Closes
-                      {{ date(q.expiresAt) }}</span
+
+            <table v-else class="ledger-table">
+              <caption class="sr-only">Community quest rows</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Row</th>
+                  <th scope="col">Quest</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Capacity</th>
+                  <th scope="col">Expires</th>
+                  <th scope="col"><span class="sr-only">Action</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(q, index) in visibleQuests"
+                  :key="q.id"
+                  :id="'quest-row-' + q.id"
+                  tabindex="-1"
+                >
+                  <td class="id">{{ q.sample ? "EX" : String(index + 1).padStart(2, "0") }}</td>
+                  <td class="title">
+                    {{ q.title }}
+                    <small>{{ q.sample ? "sample row" : q.detail || "Community participation record" }}</small>
+                  </td>
+                  <td>
+                    <span class="tag" :class="questStatus(q).toLowerCase()">{{ questStatus(q) }}</span>
+                  </td>
+                  <td class="meta">
+                    <template v-if="q.sample">preview only</template>
+                    <template v-else>
+                      <span class="meter-row">
+                        <span class="meter">
+                          <i :style="{ width: Math.min(100, Math.round((q.claims / (q.maxClaims || 1)) * 100)) + '%' }"></i>
+                        </span>
+                        {{ q.claims }}/{{ q.maxClaims }}
+                      </span>
+                    </template>
+                  </td>
+                  <td class="meta">{{ q.sample ? "—" : date(q.expiresAt) }}</td>
+                  <td class="act">
+                    <button
+                      class="action"
+                      :disabled="actionDisabled || (!q.sample && questStatus(q) !== 'Open')"
+                      @click="claim(q)"
                     >
-                  </div>
-                </div>
-                <div class="quest-action">
-                  <div class="quest-reward">
-                    <span>{{ q.sample ? "Sample content" : "Reward" }}</span>
-                    <strong v-if="q.sample">Preview only</strong>
-                    <strong v-else>No token reward</strong>
-                  </div>
-                  <button
-                    class="outline wide"
-                    :disabled="
-                      actionDisabled || (!q.sample && questStatus(q) !== 'Open')
-                    "
-                    @click="claim(q)"
-                  >
-                    {{
-                      q.sample
-                        ? "Preview quest"
-                        : q.claimed
-                          ? "Already claimed"
-                          : questStatus(q) !== "Open"
-                            ? questStatus(q)
-                            : connected
-                              ? "Record participation"
-                              : "Connect to record"
-                    }}<Icon :size="17" /></button
-                  ><button
-                    v-if="isOwner && !q.sample"
-                    class="text-button steward-action"
-                    :disabled="busy"
-                    @click="setQuest(q)"
-                  >
-                    {{ q.active ? "Pause quest" : "Resume quest" }}
-                  </button>
-                </div>
-              </article>
+                      {{
+                        q.sample
+                          ? "Preview"
+                          : q.claimed
+                            ? "Recorded"
+                            : questStatus(q) !== "Open"
+                              ? questStatus(q)
+                              : connected
+                                ? "Record row"
+                                : "Connect"
+                      }}
+                    </button>
+                    <button
+                      v-if="isOwner && !q.sample"
+                      class="action quiet"
+                      :disabled="busy"
+                      @click="setQuest(q)"
+                    >
+                      {{ q.active ? "Pause" : "Resume" }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <form v-if="isOwner" class="band" @submit.prevent="createQuest">
+            <div class="band-head">
+              <h2>Steward tools / publish a row</h2>
+              <span class="band-note">authority wallet</span>
             </div>
-          </div>
-          <div class="quest-guidance">
-            <Icon name="shield" :size="22" />
-            <div>
-              <strong>Your wallet, your decision.</strong>
-              <p>
-                Review the quest and network before confirming. A preview never
-                sends a transaction.
-              </p>
-            </div>
-            <button class="text-button" @click="go('learn')">
-              How quests work <Icon :size="17" />
-            </button>
-          </div>
-          <form
-            v-if="isOwner"
-            class="panel admin-box"
-            @submit.prevent="createQuest"
-          >
-            <div class="admin-intro">
-              <span class="eyebrow">STEWARD TOOLS</span>
-              <h2>Make room for<br />the next contribution.</h2>
-              <p>Quest claims create a participation record only. This program does not mint or transfer token rewards.</p>
-            </div>
-            <div class="admin-fields">
-              <h3>Publish a quest</h3>
-              <div class="form-row">
-                <label
-                  >Quest title<input
-                    v-model="adminTitle"
-                    maxlength="80"
-                    required
-                    placeholder="Welcome to the community" /></label
-                ><label>Quest details<textarea
-                    v-model="adminDetails"
-                    maxlength="240"
-                    rows="2"
-                    placeholder="What should participants review or contribute?"
-                /></label>
+            <div class="band-body form-grid">
+              <div class="form-grid two">
+                <label>
+                  <span>Quest title</span>
+                  <input v-model="adminTitle" maxlength="80" required placeholder="Welcome to the community" />
+                </label>
+                <label>
+                  <span>Details</span>
+                  <input v-model="adminDetails" maxlength="240" placeholder="What should participants review?" />
+                </label>
+                <label>
+                  <span>Maximum rows</span>
+                  <input v-model="adminMax" type="number" min="1" max="1000000" required />
+                </label>
+                <label>
+                  <span>Expires in days</span>
+                  <input v-model="adminDays" type="number" min="1" max="365" required />
+                </label>
               </div>
-              <div class="form-row">
-                <label
-                  >Maximum claims<input
-                    v-model="adminMax"
-                    type="number"
-                    min="1"
-                    max="1000000"
-                    required /></label
-                ><label
-                  >Expires in days<input
-                    v-model="adminDays"
-                    type="number"
-                    min="1"
-                    max="365"
-                    required
-                /></label>
+              <div class="form-foot">
+                <small>Claims write a participation row only / no token reward</small>
+                <button class="action solid" :disabled="actionDisabled" type="submit">
+                  <Icon name="plus" :size="15" /> Publish row
+                </button>
               </div>
-              <button class="primary" :disabled="actionDisabled" type="submit">
-                Publish quest <Icon name="plus" :size="18" />
-              </button>
             </div>
           </form>
-        </section>
 
-        <section v-if="tab === 'stake'" class="page stake-page">
-          <div class="page-head">
+          <div class="notice">
+            <Icon name="shield" :size="18" />
             <div>
-              <span class="eyebrow">TOKEN DETAILS / COMING LATER</span>
-              <h1>Token features come later.</h1>
+              <strong>Your wallet, your decision</strong>
+              <p>Review the quest and the network before confirming. A preview never sends a transaction.</p>
+            </div>
+            <button class="action quiet spacer" @click="go('learn')">
+              How quests work <Icon name="arrow" :size="14" />
+            </button>
+          </div>
+        </template>
+
+        <!-- 02 / TOKEN ---------------------------------------------------- -->
+        <template v-if="route === 'stake'">
+          <div class="route-head">
+            <div>
+              <span class="eyebrow">02 / Token details</span>
+              <h1>No token is <em>wired up.</em></h1>
               <p>
-                Quests and advisory governance run through the Solana program.
-                Token locking and rewards remain disabled until the mint,
-                custody model, schedule, and funding are defined.
+                Quests and advisory votes run through the Solana program. Locking,
+                rewards and staking stay disabled until a mint and its custody rules
+                are defined.
               </p>
             </div>
-            <span class="page-emblem peach"
-              ><Icon name="stake" :size="32"
-            /></span>
+            <span class="route-tag">not configured</span>
           </div>
-          <div class="stake-layout">
-            <article class="panel stake-card">
-              <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">TOKEN STATUS</span>
-                  <h2>No token is connected</h2>
+
+          <div class="split">
+            <div class="stack">
+              <section class="band">
+                <div class="band-head">
+                  <h2>Token status</h2>
+                  <span class="tag closed">not configured</span>
                 </div>
-                <span class="badge">Not configured</span>
-              </div>
-              <div class="stake-configuration">
-                <p class="form-note">
-                  <Icon name="info" :size="17" />
-                  <span>
-                    The Solana program currently records quest participation and
-                    advisory votes. It does not custody tokens, mint rewards,
-                    or track staking positions.
-                  </span>
-                </p>
-                <h3 class="form-section-heading">
-                  <span>01</span> Details needed before token features
-                </h3>
-                <ul>
-                  <li>A verified SPL token mint and its decimals</li>
-                  <li>Custody and withdrawal rules for any lock</li>
-                  <li>A defined reward source and funding plan</li>
-                </ul>
-              </div>
-              <div class="stake-review">
-                <h3 class="form-section-heading">
-                  <span>02</span> What unlocks this
-                </h3>
-                <p class="fine-print">
-                  Once a verified mint and clear custody and funding rules are
-                  provided, token features can be designed and tested against
-                  those exact details.
-                </p>
-                <button class="primary" type="button" @click="go('learn')">
-                  Read the field guide <Icon name="external" :size="18" />
-                </button>
-              </div>
-            </article>
-          </div>
-        </section><section v-if="tab === 'governance'" class="page governance-page">
-          <div class="page-head">
-            <div>
-              <span class="eyebrow">03 / THE ASSEMBLY</span>
-              <h1>What comes next?</h1>
-              <p>
-                Put an idea into words, hear other perspectives, and help choose
-                a direction. Votes are advisory; treasury spending remains a
-                separate steward action.
-              </p>
+                <div class="band-body tight">
+                  <dl class="defs">
+                    <div>
+                      <dt>On-chain token</dt>
+                      <dd class="muted">{{ tokenIdentity }}</dd>
+                    </div>
+                    <div>
+                      <dt>Token staking</dt>
+                      <dd class="muted">not implemented</dd>
+                    </div>
+                    <div>
+                      <dt>Locking</dt>
+                      <dd class="muted">not implemented</dd>
+                    </div>
+                    <div>
+                      <dt>Reward source</dt>
+                      <dd class="muted">undefined</dd>
+                    </div>
+                    <div>
+                      <dt>Decimals</dt>
+                      <dd class="muted">{{ mintConfigured ? tokenDecimals : "—" }}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div class="band-body">
+                  <p class="fine">
+                    The program records participation rows and advisory votes. It does
+                    not custody tokens, mint rewards or track staking positions.
+                  </p>
+                </div>
+              </section>
+
+              <section class="band">
+                <div class="band-head">
+                  <h2>What would have to exist first</h2>
+                  <span class="band-note">in order</span>
+                </div>
+                <div class="band-body tight">
+                  <ol class="steps">
+                    <li class="step">
+                      <span class="idx">01</span>
+                      <div>
+                        <h3>A verified SPL mint</h3>
+                        <p>The mint address, decimals and metadata would be read from Solana before any label appears here.</p>
+                      </div>
+                    </li>
+                    <li class="step">
+                      <span class="idx">02</span>
+                      <div>
+                        <h3>Written custody rules</h3>
+                        <p>Who can move locked balances, how a holder exits, and what happens if the program pauses.</p>
+                      </div>
+                    </li>
+                    <li class="step">
+                      <span class="idx">03</span>
+                      <div>
+                        <h3>A funded reward source</h3>
+                        <p>Rewards need money behind them. Until that exists, no reward can be promised in a row.</p>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+              </section>
             </div>
-            <span class="page-emblem mint"
-              ><Icon name="governance" :size="32"
-            /></span>
-          </div>
-          <div class="governance-layout">
-            <aside class="compose-column">
-              <div class="compose-intro">
-                <span class="round-icon"><Icon name="plus" :size="25" /></span>
-                <h2>An idea worth sharing.</h2>
-                <p>
-                  Every shared decision begins with someone putting an idea
-                  forward.
-                </p>
-                <button
-                  id="proposal-toggle"
-                  class="primary wide"
-                  :aria-expanded="showProposal"
-                  aria-controls="proposal-editor"
-                  @click="toggleProposal"
-                >
-                  <Icon :name="showProposal ? 'close' : 'plus'" :size="18" />{{
-                    showProposal
-                      ? "Close editor"
-                      : draftSaved
-                        ? "Continue your draft"
-                        : "New proposal"
-                  }}</button
-                ><span
-                  v-if="draftSaved && !showProposal"
-                  class="draft-indicator"
-                  ><Icon name="check" :size="14" />Your draft is saved in this
-                  tab.</span
-                >
-              </div>
-              <form
-                v-if="showProposal"
-                id="proposal-editor"
-                class="panel proposal-editor"
-                @submit.prevent="createProposal"
-                @keydown.esc.prevent="toggleProposal"
-              >
-                <div class="panel-heading">
-                  <h2>Shape your idea</h2>
-                  <span class="badge">Draft</span>
+
+            <aside class="side">
+              <section class="band">
+                <div class="band-head"><h2>Network wiring</h2></div>
+                <div class="band-body tight">
+                  <dl class="defs">
+                    <div>
+                      <dt>Cluster</dt>
+                      <dd>{{ SOLANA_CLUSTER }}</dd>
+                    </div>
+                    <div>
+                      <dt>Network</dt>
+                      <dd class="muted">{{ SOLANA_NETWORK_NAME }}</dd>
+                    </div>
+                    <div>
+                      <dt>Program</dt>
+                      <dd>{{ programReady ? "initialised" : configured ? "pending" : "not set" }}</dd>
+                    </div>
+                    <div>
+                      <dt>Mint</dt>
+                      <dd class="muted">{{ mintConfigured ? short(TOKEN_MINT_ADDRESS) : "none" }}</dd>
+                    </div>
+                  </dl>
                 </div>
-                <label for="proposal-description">Proposal description</label
-                ><textarea
-                  id="proposal-description"
-                  v-model="proposalText"
-                  minlength="10"
-                  maxlength="2000"
-                  required
-                  placeholder="Describe the decision, its purpose, any budget, and the intended outcome."
-                  aria-describedby="proposal-help"
-                ></textarea>
-                <div id="proposal-help" class="editor-help">
-                  <span>{{
-                    draftSaved
-                      ? "Draft saved in this tab."
-                      : "10-2,000 characters."
-                  }}</span
-                  ><span>{{ proposalText.length }} / 2,000</span>
-                </div>
-                <p class="fine-print">
-                  Published proposals are recorded on-chain.
-                </p>
-                <label class="voting-period"
-                  >Voting period (days)<input
-                    v-model="proposalDays"
-                    type="number"
-                    min="1"
-                    max="30"
-                    required /></label
-                ><button
-                  class="primary wide"
-                  :disabled="actionDisabled || proposalText.trim().length < 10"
-                  type="submit"
-                >
-                  {{ !programReady ? "Preview proposal" : "Publish proposal"
-                  }}<Icon :size="18" />
-                </button>
-                <div class="editor-actions">
-                  <button class="quiet" type="button" @click="toggleProposal">
-                    Keep draft & close</button
-                  ><button
-                    v-if="proposalText"
-                    class="quiet"
-                    type="button"
-                    @click="clearDraft"
-                  >
-                    Clear draft</button
-                  ><button
-                    v-else-if="clearedDraft"
-                    class="quiet"
-                    type="button"
-                    @click="undoClearDraft"
-                  >
-                    Undo clear
+                <div class="band-body">
+                  <button class="action wide" @click="go('learn')">
+                    Read the field guide <Icon name="external" :size="14" />
                   </button>
                 </div>
-              </form>
-              <div class="voting-guide">
-                <span class="eyebrow">A THOUGHTFUL PROPOSAL</span>
-                <ol>
-                  <li>
-                    <span>01</span>
-                    <div>
-                      <strong>Make it clear</strong>
-                      <p>Describe one decision and why it matters.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <span>02</span>
-                    <div>
-                      <strong>Give it context</strong>
-                      <p>Include the intended outcome and any budget.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <span>03</span>
-                    <div>
-                      <strong>Leave room to consider</strong>
-                      <p>Choose a voting window of 1-30 days.</p>
-                    </div>
-                  </li>
-                </ol>
+              </section>
+              <div class="notice ember">
+                <Icon name="info" :size="18" />
+                <div>
+                  <strong>No mint has been issued</strong>
+                  <p>Anything claiming a Tabulora token right now is not from this project.</p>
+                </div>
               </div>
             </aside>
-            <div class="proposal-feed">
-              <div class="section-heading proposal-heading">
-                <h2>Community proposals</h2>
-                <span class="count-badge">{{ visibleProposals.length }}</span>
-              </div>
-              <div
-                v-if="programReady && reading && !visibleProposals.length"
-                class="skeleton"
-                role="status"
-              >
-                <span class="sr-only">Loading proposals</span>
-              </div>
-              <div
-                v-if="programReady && !reading && !visibleProposals.length"
-                class="empty"
-              >
-                <Icon name="governance" :size="32" />
-                <h2>
-                  {{
-                    readError
-                      ? "Proposals are unavailable."
-                      : "The floor is yours."
-                  }}
-                </h2>
-                <p>
-                  {{
-                    readError
-                      ? "Use Try again above to reconnect."
-                      : "Start the first community proposal with a clear idea and a voting period."
-                  }}
-                </p>
-                <button
-                  v-if="!readError && !showProposal"
-                  class="outline"
-                  @click="toggleProposal"
-                >
-                  Create the first proposal
-                </button>
-              </div>
-              <div class="proposal-list">
-                <article
-                  v-for="p in visibleProposals"
-                  :key="p.id"
-                  class="proposal panel"
-                >
-                  <div class="proposal-copy">
-                    <div class="proposal-meta">
-                      <span class="tiny-label">{{
-                        p.sample
-                          ? "SAMPLE PROPOSAL"
-                          : "PROPOSAL / " + String(p.id).padStart(3, "0")
-                      }}</span
-                      ><span
-                        class="badge"
-                        :class="{ open: proposalStatus(p) === 'Open' }"
-                        >{{ proposalStatus(p) }}</span
-                      >
-                    </div>
-                    <h2>{{ p.description }}</h2>
+          </div>
+        </template>
+
+        <!-- 03 / VOTES ---------------------------------------------------- -->
+        <template v-if="route === 'governance'">
+          <div class="route-head">
+            <div>
+              <span class="eyebrow">03 / Advisory votes</span>
+              <h1>Put it to <em>the room.</em></h1>
+              <p>
+                Write an idea, choose a 1–30 day window, and let wallets answer. One
+                vote per wallet; results are advisory and never move funds.
+              </p>
+            </div>
+            <span class="route-tag">{{ visibleProposals.length }} proposals</span>
+          </div>
+
+          <div class="split">
+            <div class="stack">
+              <section class="band">
+                <div class="band-head">
+                  <h2>Proposal ledger</h2>
+                  <span class="band-note">{{ programReady ? "on chain" : "sample rows" }}</span>
+                </div>
+                <div class="band-body tight">
+                  <div v-if="programReady && reading && !visibleProposals.length" class="skeleton" role="status">
+                    <span class="sr-only">Loading proposals</span>
+                  </div>
+                  <div
+                    v-else-if="!visibleProposals.length"
+                    class="empty"
+                  >
+                    <strong>{{ readError ? "Proposals unavailable" : "The floor is open" }}</strong>
                     <p>
-                      <Icon name="clock" :size="15" />{{
-                        p.sample
-                          ? "Example only / no live votes"
-                          : "Voting ends " + date(p.endsAt)
-                      }}
-                    </p>
-                  </div>
-                  <div class="vote">
-                    <div class="vote-totals">
-                      <span
-                        ><i class="vote-dot"></i>For
-                        <b>{{ units(p.forVotes) }}</b></span
-                      ><span
-                        ><i class="vote-dot against"></i>Against
-                        <b>{{ units(p.againstVotes) }}</b></span
-                      >
-                    </div>
-                    <div
-                      class="vote-bar"
-                      role="img"
-                      :aria-label="
-                        p.forVotes + p.againstVotes === 0n
-                          ? 'No votes cast'
-                          : votePercent(p) + ' percent support'
-                      "
-                    >
-                      <i :style="{ width: votePercent(p) + '%' }"></i>
-                    </div>
-                    <small>{{
-                      p.forVotes + p.againstVotes === 0n
-                        ? "Waiting for the first vote"
-                        : votePercent(p) + "% of cast weight supports this"
-                    }}</small>
-                    <div class="vote-buttons">
-                      <button
-                        class="outline"
-                        :disabled="
-                          actionDisabled ||
-                          (!p.sample && proposalStatus(p) !== 'Open')
-                        "
-                        @click="vote(p, true)"
-                      >
-                        <Icon name="check" :size="16" />Vote For</button
-                      ><button
-                        class="outline"
-                        :disabled="
-                          actionDisabled ||
-                          (!p.sample && proposalStatus(p) !== 'Open')
-                        "
-                        @click="vote(p, false)"
-                      >
-                        <Icon name="close" :size="16" />Vote Against
-                      </button>
-                    </div>
-                    <p v-if="p.voted" class="vote-recorded">
-                      <Icon name="check" :size="15" />Your vote is recorded.
-                    </p>
-                  </div>
-                </article>
-              </div>
-              <div class="form-note governance-note">
-                <Icon name="info" />
-                <p>
-                  One vote per wallet per proposal. Voting weight follows the
-                  connected program's rules. Your current balance may differ
-                  from eligible voting weight.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="tab === 'treasury'" class="page treasury-page">
-          <div class="page-head">
-            <div>
-              <span class="eyebrow">04 / THE OPEN LEDGER</span>
-              <h1>Every part accounted for.</h1>
-              <p>
-                See the community's resources and the activity behind them, read
-                directly from Solana.
-              </p>
-            </div>
-            <span class="page-emblem"><Icon name="treasury" :size="32" /></span>
-          </div>
-          <div class="treasury-layout">
-            <div class="treasury-balances">
-              <article class="treasury-main">
-                <div class="panel-heading">
-                  <span class="eyebrow">TREASURY BALANCE</span
-                  ><Icon name="treasury" :size="24" />
-                </div>
-                    <strong
-                >{{ ready && treasuryTokenKnown ? units(treasuryBalance) : "--"
-                  }}<small v-if="mintConfigured">{{ tokenSymbol }}</small></strong
-                ><span>{{ tokenIdentity }}</span>
-                <div class="treasury-gas">
-                  <Icon name="wallet" :size="19" /><span
-                    >Treasury gas balance</span
-                  ><strong
-                    >{{ ready && treasuryNativeKnown ? solUnits(treasuryNative, 6) : "--"
-                    }}<small>{{ SOLANA_CLUSTER === "devnet" ? "Devnet SOL" : SOLANA_CLUSTER === "testnet" ? "Testnet SOL" : "SOL" }}</small></strong
-                  >
-                </div>
-              </article>
-              <p
-                v-if="treasuryError || (mintConfigured && ready && (!treasuryKnown || !treasuryTokenKnown))"
-                class="treasury-notice"
-                role="status"
-              >
-                <Icon name="info" :size="17" />{{
-                  treasuryError ||
-                  "Treasury token or SOL balances are not fully available yet."
-                }}
-              </p>
-              <article class="panel ledger">
-                <div class="panel-heading">
-                  <h2>Account statement</h2>
-                  <Icon name="layers" :size="20" />
-                </div>
-                <dl>
-                  <div>
-                    <dt>On-chain token</dt>
-                    <dd>{{ tokenIdentity }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ mintConfigured ? `Total issued ${tokenSymbol}` : "Issued supply" }}</dt>
-                    <dd>{{ mintConfigured && ready ? units(totalSupply) : "--" }}</dd>
-                  </div>
-                  <div>
-                    <dt>Token staking</dt>
-                    <dd>Not implemented</dd>
-                  </div>
-                  <div>
-                    <dt>{{ mintConfigured ? `Your ${tokenSymbol} balance` : "Your token balance" }}</dt>
-                    <dd>
                       {{
-                        connected && accountReady
-                          ? units(token)
-                          : connected
-                            ? "Unavailable"
-                            : "Connect wallet"
+                        readError
+                          ? "Use sync above to reconnect."
+                          : "Start the first proposal with a clear idea and a voting window."
                       }}
-                    </dd>
+                    </p>
+                    <button v-if="!readError && !composeOpen" class="action" @click="toggleCompose">
+                      Write the first proposal
+                    </button>
                   </div>
-                </dl>
-                <span class="eyebrow ledger-label"
-                  >NETWORK &amp; ADDRESSES</span
-                >
-                <dl>
-                  <div>
-                    <dt>Treasury wallet</dt>
-                    <dd>
-                      <a
-                        v-if="treasury"
-                        :href="explorer('address', treasury)"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >{{ short(treasury)
-                        }}<Icon name="external" :size="15" /></a
-                      ><span v-else>Not available</span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Token mint</dt>
-                    <dd>
-                      <a
-                v-if="mintConfigured"
-                        :href="explorer('address', TOKEN_MINT_ADDRESS)"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >{{ short(TOKEN_MINT_ADDRESS)
-                        }}<Icon name="external" :size="15" /></a
-                      ><span v-else>Not configured</span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Network</dt>
-                    <dd>{{ SOLANA_NETWORK_NAME }}</dd>
-                  </div>
-                  <div>
-                    <dt>Cluster</dt>
-                    <dd>{{ SOLANA_CLUSTER }}</dd>
-                  </div>
-                </dl>
-                <p class="fine-print">
-                  Konvoxa is the app brand.
-                  {{ mintConfigured ? `Decimals are read from the mint (${tokenDecimals}); display name and ticker metadata are pending.` : "No token mint is deployed or configured." }}
-                </p>
-              </article>
-            </div>
-            <article class="panel activity">
-              <div class="panel-heading">
+                  <template v-else>
+                    <article v-for="p in visibleProposals" :key="p.id">
+                      <table class="ledger-table">
+                        <tbody>
+                          <tr>
+                            <td class="id">{{ p.sample ? "EX" : String(p.id).padStart(3, "0") }}</td>
+                            <td class="title">
+                              {{ p.description }}
+                              <small>
+                                {{ p.sample ? "sample proposal / no live votes" : "closes " + date(p.endsAt) }}
+                              </small>
+                            </td>
+                            <td class="act">
+                              <span class="tag" :class="proposalStatus(p).toLowerCase()">{{ proposalStatus(p) }}</span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div class="tally">
+                        <div>
+                          <small>for</small>
+                          <b class="for">{{ units(p.forVotes) }}</b>
+                        </div>
+                        <div>
+                          <small>against</small>
+                          <b class="against">{{ units(p.againstVotes) }}</b>
+                        </div>
+                        <div>
+                          <small>support</small>
+                          <b>{{ p.forVotes + p.againstVotes === 0n ? "—" : votePercent(p) + "%" }}</b>
+                        </div>
+                        <div>
+                          <small>cast weight</small>
+                          <span class="meter-row">
+                            <span class="meter">
+                              <i :style="{ width: votePercent(p) + '%' }"></i>
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                      <div class="band-body">
+                        <div class="form-foot">
+                          <small>
+                            {{
+                              p.voted
+                                ? "Your vote is recorded"
+                                : p.forVotes + p.againstVotes === 0n
+                                  ? "Waiting for the first vote"
+                                  : votePercent(p) + "% of cast weight supports this"
+                            }}
+                          </small>
+                          <span class="step-actions">
+                            <button
+                              class="action solid"
+                              :disabled="actionDisabled || (!p.sample && proposalStatus(p) !== 'Open')"
+                              @click="vote(p, true)"
+                            >
+                              <Icon name="check" :size="14" /> Vote for
+                            </button>
+                            <button
+                              class="action ember"
+                              :disabled="actionDisabled || (!p.sample && proposalStatus(p) !== 'Open')"
+                              @click="vote(p, false)"
+                            >
+                              <Icon name="close" :size="14" /> Vote against
+                            </button>
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  </template>
+                </div>
+              </section>
+
+              <div class="notice">
+                <Icon name="info" :size="18" />
                 <div>
-                  <span class="eyebrow">ACTIVITY REGISTER</span>
-                  <h2>Recent activity</h2>
+                  <strong>Advisory only</strong>
+                  <p>
+                    Votes do not execute treasury spending. Voting weight follows the
+                    configured program rules; your balance may differ from eligible weight.
+                  </p>
                 </div>
-                <span class="subtle-badge"
-                  ><span class="status-dot"></span>On-chain</span
+              </div>
+            </div>
+
+            <aside class="side">
+              <section class="band">
+                <div class="band-head">
+                  <h2>Compose</h2>
+                  <span class="band-note">{{ draftSaved && !composeOpen ? "draft saved" : "10–2,000 chars" }}</span>
+                </div>
+                <div class="band-body">
+                  <button
+                    id="compose-toggle"
+                    class="action wide"
+                    :aria-expanded="composeOpen"
+                    aria-controls="compose-editor"
+                    @click="toggleCompose"
+                  >
+                    <Icon :name="composeOpen ? 'close' : 'plus'" :size="15" />
+                    {{ composeOpen ? "Close editor" : draftSaved ? "Continue your draft" : "New proposal" }}
+                  </button>
+                </div>
+                <form
+                  v-if="composeOpen"
+                  id="compose-editor"
+                  class="band-body form-grid"
+                  @submit.prevent="createProposal"
+                  @keydown.esc.prevent="toggleCompose"
                 >
-              </div>
-              <p class="fine-print">
-                Solana program indexing is not connected yet. No on-chain program activity is available.
-              </p>
-              <div class="empty compact">
-                <span class="empty-orbit"
-                  ><Icon name="clock" :size="30"
-                /></span>
-                <h3>
-                  {{
-                    reading
-                      ? "Reading the Solana ledger..."
-                      : readError
-                        ? "Activity could not load."
-                        : "A quiet moment on-chain."
-                  }}
-                </h3>
-                <p>
-                  {{
-                    "A Solana activity indexer will be connected after program deployment."
-                  }}
-                </p>
-              </div>
-              <div class="activity-note">
-                <Icon name="shield" :size="19" />
-                <p>
-                  Open records help everyone see where the community stands.
-                </p>
-              </div>
-            </article>
-          </div>
-        </section>
-        <section v-if="tab === 'learn'" class="page learn">
-          <div class="page-head">
-            <div>
-                  <span class="eyebrow">THE KONVOXA FIELD GUIDE</span>
-              <h1>A way in.<br /><em>A way forward.</em></h1>
-              <p>
-                A few things to know before your first contribution. Follow the
-                path at your own pace.
-              </p>
-            </div>
-            <span class="page-emblem peach"
-              ><Icon name="learn" :size="32"
-            /></span>
-          </div>
-          <div class="guide-layout">
-            <aside class="guide-start">
-              <span class="round-icon"><Icon name="spark" :size="27" /></span
-              ><span class="eyebrow">YOUR FIRST FIVE MINUTES</span>
-              <h2>Three things.<br />Then you're ready.</h2>
-              <p>Get ready to participate on {{ SOLANA_NETWORK_NAME }}.</p>
-              <ol class="setup-list">
-                <li>
-                  <span>1</span>
-                  <div>
-                    <strong>Bring a Solana wallet</strong>
-                    <p>Connect to see your balances.</p>
+                  <label>
+                    <span>Proposal description</span>
+                    <textarea
+                      id="proposal-description"
+                      v-model="proposalText"
+                      minlength="10"
+                      maxlength="2000"
+                      required
+                      placeholder="Describe the decision, its purpose, any budget, and the intended outcome."
+                    ></textarea>
+                  </label>
+                  <label>
+                    <span>Voting window (days)</span>
+                    <input v-model="proposalDays" type="number" min="1" max="30" required />
+                  </label>
+                  <div class="form-foot">
+                    <small>{{ proposalText.length }} / 2,000</small>
+                    <button
+                      class="action solid"
+                      :disabled="actionDisabled || proposalText.trim().length < 10"
+                      type="submit"
+                    >
+                      {{ programReady ? "Publish proposal" : "Preview proposal" }}
+                    </button>
                   </div>
-                  <Icon v-if="connected" name="check" :size="18" />
-                </li>
-                <li>
-                  <span>2</span>
-                  <div>
-                    <strong>Choose the cluster</strong>
-                    <p>Choose {{ SOLANA_NETWORK_NAME }} in your wallet.</p>
+                  <div class="form-foot">
+                    <button class="action quiet" type="button" @click="toggleCompose">
+                      Keep draft &amp; close
+                    </button>
+                    <button v-if="proposalText" class="action quiet" type="button" @click="clearDraft">
+                      Clear draft
+                    </button>
+                    <button v-else-if="clearedDraft" class="action quiet" type="button" @click="undoClearDraft">
+                      Undo clear
+                    </button>
                   </div>
-                  <Icon
-                    v-if="connected"
-                    name="check"
-                    :size="18"
-                  />
-                </li>
-                <li>
-                  <span>3</span>
-                  <div>
-                    <strong>Add a little gas</strong>
-                    <p>SOL on {{ SOLANA_CLUSTER }} covers transaction fees.</p>
-                  </div>
-                </li>
-              </ol>
-              <a
-                class="primary wide"
-                href="https://faucet.solana.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                v-if="SOLANA_CLUSTER === 'devnet'"
-                >Get Devnet SOL <Icon name="external" :size="18" /></a
-              ><button
-                class="text-button wide"
-                :disabled="connecting || busy"
-                @click="connected ? disconnectWallet() : connect()"
-              >
-                {{ connected ? "Disconnect wallet" : "Connect your wallet"
-                }}<Icon name="wallet" :size="16" />
-              </button>
+                </form>
+              </section>
+
+              <section class="band">
+                <div class="band-head"><h2>A proposal that carries</h2></div>
+                <div class="band-body tight">
+                  <ol class="steps">
+                    <li class="step">
+                      <span class="idx">01</span>
+                      <div>
+                        <h3>One decision</h3>
+                        <p>State a single decision and why it matters now.</p>
+                      </div>
+                    </li>
+                    <li class="step">
+                      <span class="idx">02</span>
+                      <div>
+                        <h3>Context and cost</h3>
+                        <p>Name the outcome and any budget the room should expect.</p>
+                      </div>
+                    </li>
+                    <li class="step">
+                      <span class="idx">03</span>
+                      <div>
+                        <h3>Time to answer</h3>
+                        <p>Give wallets 1–30 days so the vote is not a reflex.</p>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+              </section>
             </aside>
-            <div class="learn-path">
-              <div class="section-heading">
-                <h2>Your participation route</h2>
-                <span class="muted-label">Your participation path</span>
-              </div>
-              <article>
-                <span class="guide-number">01</span>
-                <div class="learn-copy">
-                  <span class="tiny-label">START WITH SOMETHING USEFUL</span>
-                  <h2>Make a contribution</h2>
-                  <p>
-                    Quests publish an expiry and claim cap. Each wallet can
-                    record participation once. Records do not verify off-chain
-                    work or prove a unique identity, and they pay no token.
-                  </p>
-                  <button class="text-button" @click="go('quests')">
-                    Explore quests <Icon :size="17" />
-                  </button>
-                </div>
-                <Icon name="quests" :size="27" />
-              </article>
-              <article>
-                  <span class="guide-number">02</span>
-                <div class="learn-copy">
-                  <span class="tiny-label">TOKEN FEATURES COME LATER</span>
-                  <h2>Wait for token details</h2>
-                  <p>
-                    Token locking and rewards need a verified mint, defined
-                    custody rules, and a funded reward source. None are enabled
-                    by the current community program.
-                  </p>
-                  <button class="text-button" @click="go('stake')">
-                    See token status <Icon :size="17" />
-                  </button>
-                </div>
-                <Icon name="stake" :size="27" />
-              </article>
-              <article>
-                <span class="guide-number">03</span>
-                <div class="learn-copy">
-                  <span class="tiny-label">GIVE THE NEXT IDEA A VOICE</span>
-                  <h2>Choose a direction</h2>
-                  <p>
-                    Create a proposal with a 1-30 day voting period, or vote on
-                    an open idea. One vote per wallet. Results are advisory;
-                    treasury actions remain with the steward.
-                  </p>
-                  <button class="text-button" @click="go('governance')">
-                    Explore governance <Icon :size="17" />
-                  </button>
-                </div>
-                <Icon name="governance" :size="27" />
-              </article>
-            </div>
           </div>
-          <div class="faq-layout">
-            <div class="faq-intro">
-              <span class="eyebrow">A FEW USEFUL ANSWERS</span>
-              <h2>Good to know.</h2>
+        </template>
+
+        <!-- 04 / LEDGER --------------------------------------------------- -->
+        <template v-if="route === 'treasury'">
+          <div class="route-head">
+            <div>
+              <span class="eyebrow">04 / Public reads</span>
+              <h1>Nothing hidden <em>in the books.</em></h1>
               <p>
-                Know what you're signing.<br />Know what stays in your control.
+                Treasury balances and account rows are read straight from Solana. When a
+                read is unavailable, this page says so instead of guessing.
               </p>
             </div>
-            <div class="guide-details">
-              <details open>
-                <summary>What does a wallet confirmation do?</summary>
-                <p>
-                  Quest participation, proposal creation, and advisory voting
-                  use the initialized Testnet community program. The wallet
-                  shows each instruction before signing.
-                </p>
-              </details>
-              <details>
-                <summary>Who controls the protocol?</summary>
-                <p>
-                  The program authority can publish quests and pause community
-                  actions. Governance votes are advisory and do not execute
-                  treasury spending.
-                </p>
-              </details>
-              <details>
-                <summary>
-                  Why is the token name different from Konvoxa?
-                </summary>
-                <p>
-                  The future mint will define the token name, symbol and decimals.
-                  Konvoxa is the application brand. A token name and symbol will
-                  appear after a mint is supplied and verified. Current status:
-                  {{ tokenIdentity }}.
-                </p>
-              </details>
-              <details>
-                <summary>Is a Konvoxa token deployed?</summary>
-                <p>
-                  No Konvoxa token mint is configured. The community program
-                  does not create or distribute a token. A mint's name, symbol,
-                  decimals, and address will be
-                  shown after they are provided and verified.
-                </p>
-              </details>
-              <details>
-                <summary>Is Konvoxa an official Solana product?</summary>
-                <p>
-                  No. Konvoxa is an independent community project currently
-                  configured for {{ SOLANA_NETWORK_NAME }}. It is not affiliated
-                  with the Solana Foundation.
-                </p>
-              </details>
-              <details>
-                <summary>
-                  Why am I seeing a preview or a connection error?
-                </summary>
-                <p>
-                  A preview means sample content is shown and no transaction is
-                  submitted. A connection error means the configured Solana data
-                  could not be read. Use Refresh to retry.
-                  Never share a seed phrase or private key to resolve a
-                  connection issue.
-                </p>
-              </details>
-            </div>
+            <span class="route-tag">{{ SOLANA_NETWORK_NAME }}</span>
           </div>
-        </section>
+
+          <section class="flow" aria-label="Treasury reads">
+            <div class="flow-cell">
+              <small>treasury token balance</small>
+              <b class="dim">{{ ready && treasuryTokenKnown ? units(treasuryBalance) : "—" }}</b>
+              <span>{{ tokenIdentity }}</span>
+            </div>
+            <div class="flow-cell">
+              <small>treasury gas</small>
+              <b class="dim">
+                {{ ready && treasuryNativeKnown ? solUnits(treasuryNative, 6) + " SOL" : "—" }}
+              </b>
+              <span>native balance for fees</span>
+            </div>
+            <div class="flow-cell">
+              <small>issued supply</small>
+              <b class="dim">{{ mintConfigured && ready ? units(totalSupply) : "not configured" }}</b>
+              <span>read from the mint</span>
+            </div>
+            <div class="flow-cell">
+              <small>indexer</small>
+              <b class="dim">not connected</b>
+              <span>no activity index yet</span>
+            </div>
+          </section>
+
+          <p v-if="treasuryError || (mintConfigured && ready && (!treasuryKnown || !treasuryTokenKnown))" class="fine" role="status">
+            {{ treasuryError || "Treasury token or SOL balances are not fully available yet." }}
+          </p>
+
+          <div class="split">
+            <div class="stack">
+              <section class="band">
+                <div class="band-head">
+                  <h2>Account statement</h2>
+                  <span class="band-note">{{ ready ? "read at " + lastRead : "awaiting read" }}</span>
+                </div>
+                <div class="band-body tight">
+                  <dl class="defs">
+                    <div>
+                      <dt>On-chain token</dt>
+                      <dd class="muted">{{ tokenIdentity }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ mintConfigured ? `Total issued ${tokenSymbol}` : "Issued supply" }}</dt>
+                      <dd>{{ mintConfigured && ready ? units(totalSupply) : "—" }}</dd>
+                    </div>
+                    <div>
+                      <dt>Token staking</dt>
+                      <dd class="muted">not implemented</dd>
+                    </div>
+                    <div>
+                      <dt>{{ mintConfigured ? `Your ${tokenSymbol}` : "Your token balance" }}</dt>
+                      <dd>
+                        {{ connected && accountReady ? units(token) : connected ? "reading" : "connect wallet" }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Decimals</dt>
+                      <dd class="muted">{{ mintConfigured ? tokenDecimals : "—" }}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </section>
+
+              <section class="band">
+                <div class="band-head">
+                  <h2>Activity register</h2>
+                  <span class="band-note">not connected</span>
+                </div>
+                <div class="band-body">
+                  <div class="empty">
+                    <strong>{{ reading ? "Reading the Solana ledger…" : readError ? "Activity could not load" : "No indexer yet" }}</strong>
+                    <p>A Solana activity index will be connected after the program is deployed for production use.</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside class="side">
+              <section class="band">
+                <div class="band-head"><h2>Network &amp; addresses</h2></div>
+                <div class="band-body tight">
+                  <dl class="defs">
+                    <div>
+                      <dt>Treasury wallet</dt>
+                      <dd>
+                        <a
+                          v-if="treasury"
+                          :href="explorer('address', treasury)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >{{ short(treasury) }} <Icon name="external" :size="13" /></a>
+                        <span v-else class="muted">not available</span>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Token mint</dt>
+                      <dd>
+                        <a
+                          v-if="mintConfigured"
+                          :href="explorer('address', TOKEN_MINT_ADDRESS)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >{{ short(TOKEN_MINT_ADDRESS) }} <Icon name="external" :size="13" /></a>
+                        <span v-else class="muted">not configured</span>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Network</dt>
+                      <dd class="muted">{{ SOLANA_NETWORK_NAME }}</dd>
+                    </div>
+                    <div>
+                      <dt>Cluster</dt>
+                      <dd>{{ SOLANA_CLUSTER }}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div class="band-body">
+                  <p class="fine">
+                    Tabulora is the application brand. {{
+                      mintConfigured
+                        ? "Decimals come from the mint; display metadata stays pending until it is verified."
+                        : "No token mint is deployed or configured."
+                    }}
+                  </p>
+                </div>
+              </section>
+
+              <div class="notice">
+                <Icon name="shield" :size="18" />
+                <div>
+                  <strong>Open rows cut both ways</strong>
+                  <p>Anyone can reopen these reads, including people who disagree with the last decision.</p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </template>
+
+        <!-- 05 / GUIDE ---------------------------------------------------- -->
+        <template v-if="route === 'learn'">
+          <div class="route-head">
+            <div>
+              <span class="eyebrow">05 / The field guide</span>
+              <h1>A way in. <em>A way to check.</em></h1>
+              <p>
+                What each row means, what your wallet will show you, and what this
+                project deliberately does not do yet.
+              </p>
+            </div>
+            <span class="route-tag">{{ SOLANA_NETWORK_NAME }}</span>
+          </div>
+
+          <div class="split">
+            <div class="stack">
+              <section class="band">
+                <div class="band-head">
+                  <h2>The route</h2>
+                  <span class="band-note">three steps</span>
+                </div>
+                <div class="band-body tight">
+                  <ol class="steps">
+                    <li class="step">
+                      <span class="idx">01</span>
+                      <div>
+                        <h3>Record a participation row</h3>
+                        <p>
+                          Quests carry an expiry and a row cap. Each wallet records once.
+                          Rows do not verify off-chain work, prove a unique person, or pay
+                          a token.
+                        </p>
+                        <div class="step-actions">
+                          <button class="action" @click="go('quests')">
+                            Open quests <Icon name="arrow" :size="14" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                    <li class="step">
+                      <span class="idx">02</span>
+                      <div>
+                        <h3>Wait for real token details</h3>
+                        <p>
+                          Locking and rewards need a verified mint, custody rules and a
+                          funded reward source. None are enabled by the community program.
+                        </p>
+                        <div class="step-actions">
+                          <button class="action" @click="go('stake')">
+                            Token status <Icon name="arrow" :size="14" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                    <li class="step">
+                      <span class="idx">03</span>
+                      <div>
+                        <h3>Answer the next question</h3>
+                        <p>
+                          Create a proposal with a 1–30 day window, or vote on an open one.
+                          One vote per wallet. Results are advisory.
+                        </p>
+                        <div class="step-actions">
+                          <button class="action" @click="go('governance')">
+                            Open votes <Icon name="arrow" :size="14" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+              </section>
+
+              <section class="band">
+                <div class="band-head"><h2>Good to know</h2></div>
+                <div class="band-body tight">
+                  <details class="qa" open>
+                    <summary>What does a wallet confirmation do?</summary>
+                    <p>
+                      Recording a quest row, publishing a proposal and casting a vote use
+                      the initialised program on {{ SOLANA_NETWORK_NAME }}. Your wallet
+                      shows every instruction before you sign.
+                    </p>
+                  </details>
+                  <details class="qa">
+                    <summary>Who controls the protocol?</summary>
+                    <p>
+                      The program authority can publish quests and pause community actions.
+                      Advisory votes do not execute treasury spending.
+                    </p>
+                  </details>
+                  <details class="qa">
+                    <summary>Why is the token name separate from Tabulora?</summary>
+                    <p>
+                      A future mint defines its own name, symbol and decimals. Tabulora is
+                      the application brand. Current status: {{ tokenIdentity }}.
+                    </p>
+                  </details>
+                  <details class="qa">
+                    <summary>Is a Tabulora token deployed?</summary>
+                    <p>
+                      No Tabulora token mint is configured. The community program does not
+                      create or distribute a token.
+                    </p>
+                  </details>
+                  <details class="qa">
+                    <summary>Is Tabulora an official Solana product?</summary>
+                    <p>
+                      No. Tabulora is an independent community project currently reading
+                      {{ SOLANA_NETWORK_NAME }}. It is not affiliated with the Solana
+                      Foundation.
+                    </p>
+                  </details>
+                  <details class="qa">
+                    <summary>Why do I see preview rows or a connection error?</summary>
+                    <p>
+                      Preview means sample rows are shown and nothing is submitted. A
+                      connection error means configured Solana data could not be read — use
+                      sync to retry. Never share a seed phrase or private key to fix a
+                      connection.
+                    </p>
+                  </details>
+                </div>
+              </section>
+            </div>
+
+            <aside class="side">
+              <section class="band">
+                <div class="band-head"><h2>Checklist</h2></div>
+                <div class="band-body tight">
+                  <ul class="checklist">
+                    <li :class="{ done: connected }">
+                      <i>{{ connected ? "✓" : "1" }}</i>
+                      <div>
+                        <b>Bring a Solana wallet</b>
+                        <small>{{ connected ? "connected" : "connect to read balances" }}</small>
+                      </div>
+                    </li>
+                    <li>
+                      <i>2</i>
+                      <div>
+                        <b>Match the cluster</b>
+                        <small>set your wallet to {{ SOLANA_NETWORK_NAME }}</small>
+                      </div>
+                    </li>
+                    <li>
+                      <i>3</i>
+                      <div>
+                        <b>Keep a little SOL</b>
+                        <small>{{ SOLANA_CLUSTER }} fees are paid in SOL</small>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+                <div class="band-body">
+                  <a
+                    v-if="SOLANA_CLUSTER === 'devnet'"
+                    class="action wide"
+                    href="https://faucet.solana.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Get Devnet SOL <Icon name="external" :size="14" />
+                  </a>
+                  <button
+                    v-else
+                    class="action wide"
+                    :disabled="connecting || busy"
+                    @click="connected ? disconnectWallet() : connect()"
+                  >
+                    <Icon name="wallet" :size="15" />
+                    {{ connected ? "Disconnect wallet" : "Connect your wallet" }}
+                  </button>
+                </div>
+              </section>
+
+              <div class="notice acid">
+                <Icon name="info" :size="18" />
+                <div>
+                  <strong>Sample mode</strong>
+                  <p>
+                    Rows marked “sample” are examples. They never send a transaction and
+                    disappear as soon as the program reads real data.
+                  </p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </template>
       </main>
-            <footer>
-        <span>2026 Konvoxa <span class="footer-separator">/</span> Consensus in the open.</span>
-        <span>Independent community project <span class="footer-dot"></span> {{ SOLANA_NETWORK_NAME }}</span>
+
+      <footer class="foot">
+        <span>2026 Tabulora / every hand on the record</span>
+        <span>
+          Independent community project / {{ SOLANA_NETWORK_NAME }} /
+          {{ configured ? "program configured" : "preview mode" }}
+        </span>
       </footer>
     </div>
+
+    <nav class="mobile-bar" aria-label="Ledger sections">
+      <button
+        v-for="entry in routes"
+        :key="entry.id"
+        :aria-current="route === entry.id ? 'page' : undefined"
+        @click="go(entry.id)"
+      >
+        <i>{{ entry.index }}</i>
+        <b>{{ entry.label }}</b>
+      </button>
+    </nav>
+
     <aside
       v-if="txState.stage !== 'idle'"
-      class="transaction-status"
+      class="toast"
       :class="txState.stage"
       :role="txState.stage === 'error' ? 'alert' : 'status'"
       aria-live="polite"
       aria-atomic="true"
     >
-      <span class="transaction-icon"
-        ><Icon
-          :name="
-            txState.stage === 'success' ? 'check' : busy ? 'refresh' : 'info'
-          "
-          :class="{ spinning: busy }"
-      /></span>
       <div>
         <strong>{{ txState.label }}</strong>
         <p>{{ txState.message }}</p>
@@ -1642,43 +1612,41 @@ async function setQuest(q) {
           :href="explorer('tx', txState.hash)"
           target="_blank"
           rel="noopener noreferrer"
-          >View transaction {{ short(txState.hash)
-          }}<Icon name="external" :size="14"
-        /></a>
+        >View transaction {{ short(txState.hash) }}</a>
       </div>
       <button
         v-if="!busy"
-        class="dismiss icon-button"
+        class="action quiet"
         aria-label="Dismiss transaction status"
         @click="txState = { stage: 'idle', label: '', message: '', hash: '' }"
       >
-        <Icon name="close" :size="17" />
+        <Icon name="close" :size="15" />
       </button>
     </aside>
   </div>
-  <div v-if="walletPickerOpen" class="wallet-picker-backdrop" @click.self="closeWalletPicker">
-    <section class="wallet-picker" role="dialog" aria-modal="true" aria-labelledby="wallet-picker-title">
-      <button class="wallet-picker-close icon-button" aria-label="Close wallet picker" @click="closeWalletPicker">
-        <Icon name="close" :size="17" />
-      </button>
-      <span class="eyebrow">SOLANA WALLET STANDARD</span>
-      <h2 id="wallet-picker-title">Choose a wallet</h2>
-      <p>Connect a wallet that supports {{ SOLANA_NETWORK_NAME }}.</p>
-      <div class="wallet-picker-list">
-        <button v-for="candidate in walletOptions" :key="candidate.name" class="wallet-picker-option" @click="chooseWallet(candidate)">
-          <img v-if="candidate.icon" :src="candidate.icon" :alt="candidate.name + ' icon'" />
-          <span>{{ candidate.name }}</span>
-          <Icon name="arrow" :size="17" />
+
+  <div v-if="walletPickerOpen" class="picker-backdrop" @click.self="closeWalletPicker">
+    <section class="picker" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+      <header>
+        <h2 id="picker-title">Choose a wallet</h2>
+        <button class="action quiet" aria-label="Close wallet picker" @click="closeWalletPicker">
+          <Icon name="close" :size="15" />
         </button>
-      </div>
-      <button class="text-button wide" @click="closeWalletPicker">Cancel</button>
+      </header>
+      <p>Connect a wallet that supports {{ SOLANA_NETWORK_NAME }}.</p>
+      <ul>
+        <li v-for="candidate in walletOptions" :key="candidate.name">
+          <button @click="chooseWallet(candidate)">
+            <img v-if="candidate.icon" :src="candidate.icon" :alt="candidate.name + ' icon'" />
+            <span v-else aria-hidden="true"></span>
+            <span>{{ candidate.name }}</span>
+            <Icon name="arrow" :size="15" />
+          </button>
+        </li>
+      </ul>
+      <footer>
+        <button class="action" @click="closeWalletPicker">Cancel</button>
+      </footer>
     </section>
   </div>
 </template>
-
-
-
-
-
-
-

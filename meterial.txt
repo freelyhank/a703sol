@@ -1,23 +1,24 @@
-KONVOXA / IDENTITY AND WEBSITE REFERENCE
+TABULORA / IDENTITY AND WEBSITE REFERENCE
 
-Name: Konvoxa
-Meaning: con (consensus) + vox (voice), public agreement with verifiable records.
-Tagline: Consensus in the open.
-Slug: konvoxa
-Preferred domain candidate: konvoxa.xyz
-Other domain candidates: konvoxa.fun / konvoxa.top
-X handle candidate: @konvoxa
-Provisional UI label: KVXA (label only; not an issued SPL symbol)
+Name: Tabulora
+Meaning: from tabularium, the public records office of Rome - community work
+written down where anyone can reopen it.
+Tagline: Every hand on the record.
+Slug: tabulora
+Preferred domain candidate: tabulora.xyz
+Other domain candidates: tabulora.fun / tabulora.top
+X handle candidate: @tabulora
+Provisional UI label: TABL (label only; not an issued SPL symbol)
 
-Identity check: read-only RDAP and public X checks dated 2026-09-29.
-No domain or social account was registered or acquired. See
-`output/branding/konvoxa/research.md` for endpoints and limits.
+Identity check: read-only RDAP, X signup-username, GitHub, npm and CoinGecko
+screen. No domain or social account was registered or acquired. See
+`output/branding/tabulora/research.md` for endpoints and limits.
 
 PRODUCT
-Konvoxa is an independent Solana community application with a consensus-workspace
-interface. It supports overview, quests, token status, advisory governance,
-treasury reads, and a participation guide. Routes remain #home / #quests /
-#stake / #governance / #treasury / #learn.
+Tabulora is an independent Solana community application with a ledger-terminal
+interface. It supports a register overview, quests, token status, advisory
+governance, treasury reads, and a field guide. Routes remain
+#home / #quests / #stake / #governance / #treasury / #learn.
 
 The Anchor community program records quest participation and advisory votes.
 It does not mint or distribute tokens, implement token locks, or execute
@@ -31,10 +32,18 @@ Program address and account interface are preserved. The deployed Anchor
 module name `kivoraft` is a technical compatibility identifier.
 
 VISUAL
-Void-navy protocol surfaces with electric cyan and iris-violet signals and mint
-confirmations, over an ambient honeycomb lattice. The Hex Consensus mark, six
-vertex nodes in a ring around one shared rotated core, is used across the app
-and launch materials.
-Twitter launch material consists of one brand post and two conditional
-post-CA build posts. CA placeholders refer only to a future verified SPL mint,
-never to the existing program address.
+Black ledger surfaces with hairline rules and a single acid-lime signal
+(#c8f04a) plus a burnt counter-signal (#ff6a3d). Labels are tracked monospace.
+The Ledger Monogram, a T and an A cut from record plates with one counter still
+open, is used across the app and launch materials.
+
+INTERFACE STRUCTURE
+A fixed left navigation spine carries the six numbered sections; a sticky
+command strip shows cluster, program, open quests, open votes and mint state;
+content is built from record tables, definition lists and numbered steps. On
+small screens the spine collapses into a bottom tab bar. The retired centred
+top-navigation layout, hero panel and rounded card grid are not used.
+
+Twitter launch material consists of five posts: one brand statement, two build
+posts, one ledger read, and one guide note. No post carries a contract address;
+no token mint exists.

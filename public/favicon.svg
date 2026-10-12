@@ -1,25 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <title>Konvoxa hex consensus mark</title>
-  <desc>Six hex-vertex nodes joined in a ring around one shared rotated core.</desc>
-  <rect width="128" height="128" rx="16" fill="#0b1020"/>
-  <g transform="translate(64 64) scale(.86) translate(-64 -64)">
-    <g fill="none" stroke="#2ae0f0" stroke-width="5" stroke-linecap="round">
-    <path d="M64 26 L97 45"/>
-    <path d="M97 45 L97 83"/>
-    <path d="M97 83 L64 102"/>
-    <path d="M64 102 L31 83"/>
-    <path d="M31 83 L31 45"/>
-    <path d="M31 45 L64 26"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img">
+  <title>Tabulora ledger monogram</title>
+  <desc>A T and an A cut from record plates: closed counters are written rows, the acid plate is the next entry.</desc>
+  <rect width="128" height="128" rx="20" fill="#15151b"/>
+  <rect x="0.5" y="0.5" width="127" height="127" rx="20" fill="none" stroke="#24241f" stroke-width="1"/>
+  <g transform="translate(64 64) scale(.84) translate(-64 -64)">
+    <g fill="#07070a">
+    <rect x="14" y="30" width="48" height="14"/>
+    <rect x="31" y="44" width="14" height="60"/>
+    <rect x="76" y="30" width="46" height="14"/>
+    <rect x="76" y="67" width="46" height="12"/>
+    <rect x="76" y="44" width="12" height="60"/>
+    <rect x="110" y="44" width="12" height="60"/>
     </g>
-    <g fill="#2ae0f0">
-    <circle cx="64" cy="26" r="8"/>
-    <circle cx="97" cy="45" r="8"/>
-    <circle cx="97" cy="83" r="8"/>
-    <circle cx="64" cy="102" r="8"/>
-    <circle cx="31" cy="83" r="8"/>
-    <circle cx="31" cy="45" r="8"/>
-    </g>
-    <path d="M64 50 L78 64 L64 78 L50 64 Z" fill="#7b5cff"/>
-    <path d="M64 57 L71 64 L64 71 L57 64 Z" fill="#2ae0f0"/>
+    <rect x="49" y="44" width="13" height="32" fill="#15151b"/>
+    <rect x="88" y="79" width="22" height="25" fill="#15151b"/>
+    <rect x="88" y="44" width="22" height="23" fill="#c8f04a"/>
   </g>
 </svg>
