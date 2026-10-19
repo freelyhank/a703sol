@@ -3,7 +3,7 @@ TABULORA / IDENTITY AND WEBSITE REFERENCE
 Name: Tabulora
 Meaning: from tabularium, the public records office of Rome - community work
 written down where anyone can reopen it.
-Tagline: Every hand on the record.
+Tagline: Community work, kept in the open.
 Slug: tabulora
 Preferred domain candidate: tabulora.xyz
 Other domain candidates: tabulora.fun / tabulora.top
@@ -15,8 +15,8 @@ screen. No domain or social account was registered or acquired. See
 `output/branding/tabulora/research.md` for endpoints and limits.
 
 PRODUCT
-Tabulora is an independent Solana community application with a ledger-terminal
-interface. It supports a register overview, quests, token status, advisory
+Tabulora is an independent Solana community application presented as an open
+civic record. It supports an overview, quests, token status, advisory
 governance, treasury reads, and a field guide. Routes remain
 #home / #quests / #stake / #governance / #treasury / #learn.
 
@@ -32,17 +32,28 @@ Program address and account interface are preserved. The deployed Anchor
 module name `kivoraft` is a technical compatibility identifier.
 
 VISUAL
-Black ledger surfaces with hairline rules and a single acid-lime signal
-(#c8f04a) plus a burnt counter-signal (#ff6a3d). Labels are tracked monospace.
-The Ledger Monogram, a T and an A cut from record plates with one counter still
-open, is used across the app and launch materials.
+Daylight paper surfaces (#f2ebdf stock, #fffdf8 cards) with warm ink text
+(#1c1710), a pine signal (#14503f) and a marigold counter-accent (#b1741a);
+failures use a muted maroon (#8b3a32). Display type is a printed serif
+(Iowan Old Style / Palatino / Georgia stack) set large and tight; interface
+text is a neutral sans. Corners are soft (12-26px), elevation is a low warm
+shadow, and the page carries two faint radial washes at the top. The Tabulora
+mark is a pine tile holding three cream record bars, the longest written
+first, used as favicon, masthead glyph and footer glyph. Mono type, acid
+lime, hairline rules and the ledger monogram are retired.
 
 INTERFACE STRUCTURE
-A fixed left navigation spine carries the six numbered sections; a sticky
-command strip shows cluster, program, open quests, open votes and mint state;
-content is built from record tables, definition lists and numbered steps. On
-small screens the spine collapses into a bottom tab bar. The retired centred
-top-navigation layout, hero panel and rounded card grid are not used.
+A single centred column under a sticky horizontal masthead: brand at the left,
+six icon pills for the sections in the middle, cluster chip, refresh and
+wallet on the right. Below the masthead, status appears as soft banners only
+when something needs saying. Every section opens with a serif page title, a
+lede and meta chips, then composes from rounded cards: quest grids, ballot
+cards with split tally bars, receipt-style statements, timelines and
+accordions. A deep-pine feature tile separates "take part" from "weigh in" on
+the overview. On small screens the pills leave the masthead, a right-hand
+drawer carries the sections and the wallet, and the footer stacks. The
+retired fixed left spine, numbered navigation, sticky command strip, table
+rows and bottom tab bar are not used.
 
 Twitter launch material consists of five posts: one brand statement, two build
 posts, one ledger read, and one guide note. No post carries a contract address;

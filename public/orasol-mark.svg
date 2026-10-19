@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img">
+  <title>ORAsol Solar O mark</title>
+  <desc>A register ring closed around an open counter, with the solar disc seated in the ring&#x27;s 1:30 opening: the hour the next row is written.</desc>
+  <path fill-rule="evenodd" fill="#14503f" d="M 64 12 A 52 52 0 1 1 64 116 A 52 52 0 1 1 64 12 Z M 64 31 A 33 33 0 1 0 64 97 A 33 33 0 1 0 64 31 Z"/>
+  <circle cx="84" cy="44" r="20" fill="#b1741a"/>
+</svg>

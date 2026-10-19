@@ -1,19 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img">
-  <title>Tabulora ledger monogram</title>
-  <desc>A T and an A cut from record plates: closed counters are written rows, the acid plate is the next entry.</desc>
-  <rect width="128" height="128" rx="20" fill="#15151b"/>
-  <rect x="0.5" y="0.5" width="127" height="127" rx="20" fill="none" stroke="#24241f" stroke-width="1"/>
-  <g transform="translate(64 64) scale(.84) translate(-64 -64)">
-    <g fill="#07070a">
-    <rect x="14" y="30" width="48" height="14"/>
-    <rect x="31" y="44" width="14" height="60"/>
-    <rect x="76" y="30" width="46" height="14"/>
-    <rect x="76" y="67" width="46" height="12"/>
-    <rect x="76" y="44" width="12" height="60"/>
-    <rect x="110" y="44" width="12" height="60"/>
-    </g>
-    <rect x="49" y="44" width="13" height="32" fill="#15151b"/>
-    <rect x="88" y="79" width="22" height="25" fill="#15151b"/>
-    <rect x="88" y="44" width="22" height="23" fill="#c8f04a"/>
+  <title>ORAsol app icon</title>
+  <desc>A register ring closed around an open counter, with the solar disc seated in the ring&#x27;s 1:30 opening: the hour the next row is written.</desc>
+  <rect width="128" height="128" rx="28" fill="#14503f"/>
+  <g transform="translate(64 64) scale(.78) translate(-64 -64)">
+    <path fill-rule="evenodd" fill="#f7f1e5" d="M 64 12 A 52 52 0 1 1 64 116 A 52 52 0 1 1 64 12 Z M 64 31 A 33 33 0 1 0 64 97 A 33 33 0 1 0 64 31 Z"/>
+    <circle cx="84" cy="44" r="20" fill="#b1741a"/>
   </g>
 </svg>
