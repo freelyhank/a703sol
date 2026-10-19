@@ -386,6 +386,7 @@ watch(proposalText, (text) => {
 
 const draftKey = "orasol-proposal-draft";
 const legacyDraftKeys = [
+  "tabulora-proposal-draft",
   "konvoxa-proposal-draft",
   "solstir-proposal-draft",
   "solvyrra-proposal-draft",
