@@ -197,8 +197,8 @@ const leadSupport = computed(() => {
 
 const todayLabel = computed(() =>
   new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
+    weekday: "short",
+    month: "short",
     day: "numeric",
   }),
 );

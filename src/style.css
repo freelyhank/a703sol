@@ -2306,6 +2306,10 @@ svg {
   user-select: none;
 }
 
+.footer-wordmark .wordmark-sol {
+  color: rgba(177, 116, 26, 0.2);
+}
+
 .footer-fine {
   display: flex;
   flex-wrap: wrap;

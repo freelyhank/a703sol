@@ -1,23 +1,25 @@
-TABULORA / IDENTITY AND WEBSITE REFERENCE
+ORASOL / IDENTITY AND WEBSITE REFERENCE
 
-Name: Tabulora
-Meaning: from tabularium, the public records office of Rome - community work
-written down where anyone can reopen it.
-Tagline: Community work, kept in the open.
-Slug: tabulora
-Preferred domain candidate: tabulora.xyz
-Other domain candidates: tabulora.fun / tabulora.top
-X handle candidate: @tabulora
-Provisional UI label: TABL (label only; not an issued SPL symbol)
+Name: ORAsol
+Meaning: ORA is the hour; SOL is the sun that keeps it and the Solana network
+it is written on. The product is the hour kept in public.
+Tagline: Time on the record.
+Slug: orasol
+Domain: orasol.online (the project domain specified for this release)
+X handle candidate: @orasolhq (@orasol is already taken)
+Alternate handles checked: @orasolxyz, @0xorasol
+Provisional UI label: ORA (label only; not an issued SPL symbol)
 
-Identity check: read-only RDAP, X signup-username, GitHub, npm and CoinGecko
-screen. No domain or social account was registered or acquired. See
-`output/branding/tabulora/research.md` for endpoints and limits.
+Identity check: read-only X signup-username and public-profile screen, plus
+GitHub, npm and CoinGecko name search. No account or domain was registered or
+acquired by this work. The `orasol.online` domain is the project destination
+specified for this release, not a registration made here. See
+`output/branding/orasol/research.md` for endpoints and limits.
 
 PRODUCT
-Tabulora is an independent Solana community application presented as an open
-civic record. It supports an overview, quests, token status, advisory
-governance, treasury reads, and a field guide. Routes remain
+ORAsol is an independent Solana community application presented as a public
+register. It supports an overview, quests, token status, advisory governance,
+treasury reads, and a field guide. Routes remain
 #home / #quests / #stake / #governance / #treasury / #learn.
 
 The Anchor community program records quest participation and advisory votes.
@@ -33,28 +35,30 @@ module name `kivoraft` is a technical compatibility identifier.
 
 VISUAL
 Daylight paper surfaces (#f2ebdf stock, #fffdf8 cards) with warm ink text
-(#1c1710), a pine signal (#14503f) and a marigold counter-accent (#b1741a);
-failures use a muted maroon (#8b3a32). Display type is a printed serif
-(Iowan Old Style / Palatino / Georgia stack) set large and tight; interface
-text is a neutral sans. Corners are soft (12-26px), elevation is a low warm
-shadow, and the page carries two faint radial washes at the top. The Tabulora
-mark is a pine tile holding three cream record bars, the longest written
-first, used as favicon, masthead glyph and footer glyph. Mono type, acid
-lime, hairline rules and the ledger monogram are retired.
+(#1c1710), a pine structural signal (#14503f) and a marigold solar signal
+(#b1741a); failures use a muted maroon (#8b3a32). Display type is a printed
+serif (Iowan Old Style / Palatino / Georgia stack) set large and tight;
+interface text is a neutral sans. Corners are soft (12-26px), elevation is a
+low warm shadow, and the page carries faint radial washes at the top.
+The ORAsol mark is the Solar O: a pine register ring closed around an open
+counter with a marigold sun in the 1:30 opening, used as favicon, masthead
+glyph, footer glyph and social avatar. The wordmark is a true vector serif with
+"sol" in marigold. Mono type, acid lime, hairline rules and the ledger monogram
+are retired.
 
 INTERFACE STRUCTURE
-A single centred column under a sticky horizontal masthead: brand at the left,
-six icon pills for the sections in the middle, cluster chip, refresh and
-wallet on the right. Below the masthead, status appears as soft banners only
-when something needs saying. Every section opens with a serif page title, a
-lede and meta chips, then composes from rounded cards: quest grids, ballot
-cards with split tally bars, receipt-style statements, timelines and
-accordions. A deep-pine feature tile separates "take part" from "weigh in" on
-the overview. On small screens the pills leave the masthead, a right-hand
-drawer carries the sections and the wallet, and the footer stacks. The
-retired fixed left spine, numbered navigation, sticky command strip, table
-rows and bottom tab bar are not used.
+A single centred column under a sticky horizontal masthead: ORAsol wordmark at
+the left, six icon pills for the sections in the middle, cluster chip, refresh
+and wallet on the right. Below the masthead, status appears as soft banners only
+when something needs saying. Every section opens with a serif page title, a lede
+and meta chips, then composes from rounded cards: quest grids, ballot cards with
+split tally bars, receipt-style statements, timelines and accordions. A
+deep-pine feature tile separates "take part" from "weigh in" on the overview. On
+small screens the pills leave the masthead, a right-hand drawer carries the
+sections and the wallet, and the footer stacks. The retired fixed left spine,
+numbered navigation, sticky command strip, table rows and bottom tab bar are not
+used.
 
-Twitter launch material consists of five posts: one brand statement, two build
-posts, one ledger read, and one guide note. No post carries a contract address;
-no token mint exists.
+Twitter launch material consists of five posts: one brand statement, one
+participation post, one advisory-vote post, one register read, and one guide
+note. No post carries a contract address; no token mint exists.

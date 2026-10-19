@@ -80,7 +80,7 @@ test('defaults to the deployed Testnet program and never reuses it on mainnet', 
 
 function runScenario(source, config = {}) {
   const script = `
-    globalThis.__TABULORA_ENV__ = ${JSON.stringify(config)}
+    globalThis.__ORASOL_ENV__ = ${JSON.stringify(config)}
     globalThis.__rpcCalls = []
     globalThis.__rpcImpl = async (method) => {
       if (method === 'getVersion') return { result: { solanaCore: '1.18.0' } }
